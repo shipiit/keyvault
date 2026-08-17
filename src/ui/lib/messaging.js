@@ -242,3 +242,13 @@ export async function copyWithAutoClear(text, clearAfterMs = 30000) {
     });
   }, clearAfterMs);
 }
+
+/** Whether a newer release exists, from the day-old cached answer. */
+export function updateStatus() {
+  return send('updates/status');
+}
+
+/** Ask again now, ignoring the cache. */
+export function checkForUpdate() {
+  return send('updates/check');
+}

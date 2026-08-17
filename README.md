@@ -32,9 +32,11 @@ Most browser password managers ask you to trust a server. KeyVault has no server
 to trust: there is no backend, no account, and no telemetry. Your vault is a
 single encrypted blob in your own browser's storage.
 
-One optional feature — breach checking — talks to a network, and only if you
-turn it on. See [Breach checking](#breach-checking) for exactly what it sends
-and what it does not.
+Two features talk to a network, and nothing else does. **Breach checking** is
+off until you turn it on, and sends five characters of a password hash — never a
+password. **Update checking** is on, and asks GitHub once a day whether a newer
+release exists; it sends no vault data, no identifier, and not even your version
+number. Both are switchable in Settings, and neither can read your vault.
 
 That design has a real cost, stated plainly: **if you forget your master
 password, your vault is unrecoverable.** There is no reset link, because there is
@@ -74,7 +76,7 @@ vault.
 | Unlock check   | Two-stage verifier record — never a stored password or password hash                                          |
 | At rest        | `chrome.storage.local` only. Never `chrome.storage.sync`, which round-trips through Google.                   |
 | In memory      | The derived key is never written to disk and is cleared when the browser closes                               |
-| Network        | None by default. Breach checking is the only feature that makes a request, and it is off until you enable it. |
+| Network        | Two requests exist: breach checking (off by default) and a daily update check (on). Neither sends vault data. |
 | CSP            | `script-src 'self'` — no remote code, no `eval`                                                               |
 
 ### Design decisions worth knowing about

@@ -7,6 +7,14 @@ export const DEFAULT_SETTINGS = Object.freeze({
   lockOnBrowserClose: true,
   clipboardClearSeconds: 30,
   theme: 'system',
+  // On by default, unlike breach checking, and the difference is deliberate.
+  // Chrome never updates a "Load unpacked" extension, so without this you run
+  // whatever you last built and cannot learn that a fix has shipped — which
+  // for a password manager is a security problem, not an inconvenience. The
+  // request is an unauthenticated GET for a public release list: it carries
+  // no vault data, no identifier and no version. Breach checking stays off by
+  // default because it is about *your* passwords; this is about the software.
+  updateCheckEnabled: true,
   generator: Object.freeze({
     length: 20,
     uppercase: true,

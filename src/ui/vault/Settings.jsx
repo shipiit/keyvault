@@ -151,6 +151,22 @@ export function Settings({ onChanged }) {
             onChange={(next) => update({ breachCheckEnabled: next })}
           />
         </Row>
+
+        <Row
+          label="Tell me when a new version is released"
+          hint={
+            'Chrome never updates an extension you loaded from a folder, so without this you ' +
+            'would stay on the build you installed. Asks GitHub once a day for the public ' +
+            'release list — no vault data, no identifier, not even your version number. ' +
+            'Nothing is ever downloaded or installed for you.'
+          }
+        >
+          <Toggle
+            checked={settings.updateCheckEnabled === true}
+            label="Tell me when a new version is released"
+            onChange={(next) => update({ updateCheckEnabled: next })}
+          />
+        </Row>
       </Section>
 
       <Section

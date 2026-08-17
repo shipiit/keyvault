@@ -13,6 +13,7 @@ import { parseTotpInput, generateTotp, totpTimeRemaining } from '../core/totp.js
 import { computeSecurityScore } from '../core/security-score.js';
 import { KeyVaultError } from '../core/errors.js';
 import { createBreachService } from './breach-service.js';
+import { createUpdateService } from './update-service.js';
 import { createBackup, readBackup, backupFilename } from '../core/backup.js';
 
 /**
@@ -147,6 +148,7 @@ export function createMessageRouter({
   autoLock,
   now = () => Date.now(),
   breachService = createBreachService(),
+  updateService = createUpdateService(),
 }) {
   const handlers = {
     // ---- Status and lifecycle (trusted contexts only) ----
@@ -512,6 +514,49 @@ export function createMessageRouter({
         // relies on, and counting it would make the score worse for tidying
         // up.
         return computeSecurityScore(liveEntries(data), { now: now(), breachedIds });
+      },
+    },
+
+    // ---- Update checking ----
+
+    'updates/status': {
+      contentScript: false,
+      /**
+       * Whether a newer release exists.
+       *
+       * Reads the day-old cached answer rather than asking each time the
+       * popup opens. Settings live inside the encrypted vault, so a locked
+       * vault simply reports unknown rather than forcing an unlock or
+       * assuming consent it cannot read.
+       */
+      handle: async () => {
+        const installedVersion = chrome.runtime.getManifest().version;
+        let settings;
+        try {
+          settings = (await vault.getData()).settings;
+        } catch {
+          return { status: 'locked', installedVersion };
+        }
+        const result = await updateService.cachedCheck(chrome, installedVersion, {
+          enabled: settings.updateCheckEnabled === true,
+        });
+        return { ...result, installedVersion };
+      },
+    },
+
+    'updates/check': {
+      contentScript: false,
+      /** The "Check now" button: bypasses the cache, on explicit request. */
+      handle: async () => {
+        const installedVersion = chrome.runtime.getManifest().version;
+        const { settings } = await vault.getData();
+        const result = await updateService.cachedCheck(
+          chrome,
+          installedVersion,
+          { enabled: settings.updateCheckEnabled === true },
+          { force: true },
+        );
+        return { ...result, installedVersion };
       },
     },
 

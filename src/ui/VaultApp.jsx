@@ -8,6 +8,7 @@ import { Settings } from './vault/Settings.jsx';
 import { GeneratorPage } from './vault/GeneratorPage.jsx';
 import { TrashView } from './vault/TrashView.jsx';
 import { WatchtowerView } from './vault/WatchtowerView.jsx';
+import { UpdateBanner } from './vault/UpdateBanner.jsx';
 import { restoreEntryRemote, listTrash } from './lib/messaging.js';
 import { Unlock } from './screens/Unlock.jsx';
 import { Onboarding } from './screens/Onboarding.jsx';
@@ -208,6 +209,11 @@ export function VaultApp({ compact = false }) {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
+      {/* Above the top bar, and only ever rendered when there is genuinely a
+          newer release: a status strip that is usually present is one nobody
+          reads by the time it matters. */}
+      <UpdateBanner />
+
       <TopBar
         compact={compact}
         query={query}
