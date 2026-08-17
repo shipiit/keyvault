@@ -8,7 +8,49 @@ import {
 } from '../core/vault-data.js';
 import { entriesForUrl, entryMatchesUrl, toHostname } from '../core/url-match.js';
 import { generateTotp, totpTimeRemaining } from '../core/totp.js';
+import { parseOtpauthUri } from '../core/totp.js';
+import { computeSecurityScore } from '../core/security-score.js';
 import { KeyVaultError } from '../core/errors.js';
+import { createBreachService } from './breach-service.js';
+
+/**
+ * Turn a pasted `otpauth://` URI or bare secret into a stored TOTP config.
+ *
+ * Accepts both because users paste whichever the site showed them. Parsing
+ * happens here rather than in the UI so the same validation applies however
+ * the entry was created — including from an importer later.
+ *
+ * @param {object} fields
+ * @returns {object}
+ */
+function withParsedTotp(fields) {
+  if (fields === null || typeof fields !== 'object' || fields.totpUri === undefined) {
+    return fields;
+  }
+  const { totpUri, ...rest } = fields;
+
+  if (typeof totpUri !== 'string' || totpUri.trim() === '') {
+    return { ...rest, totp: null };
+  }
+
+  const raw = totpUri.trim();
+  const config = raw.toLowerCase().startsWith('otpauth://')
+    ? parseOtpauthUri(raw)
+    : parseOtpauthUri(
+        `otpauth://totp/${encodeURIComponent(rest.title ?? 'Account')}?secret=${encodeURIComponent(raw)}`,
+      );
+
+  return {
+    ...rest,
+    totp: {
+      secret: config.secret,
+      issuer: config.issuer,
+      algorithm: config.algorithm,
+      digits: config.digits,
+      period: config.period,
+    },
+  };
+}
 
 /** Raised when a caller asks for something its context is not allowed to do. */
 export class NotAuthorizedError extends KeyVaultError {}
@@ -30,7 +72,8 @@ function toSummary(entry) {
     urls: entry.urls,
     tags: entry.tags,
     folderId: entry.folderId,
-    hasTotp: entry.totp !== null,
+    hasTotp: entry.totp !== null && entry.totp !== undefined,
+    favorite: entry.favorite === true,
     autoSubmit: entry.autoSubmit,
     lastUsedAt: entry.lastUsedAt,
     updatedAt: entry.updatedAt,
@@ -73,7 +116,13 @@ function isTrustedSender(sender, chrome) {
  * @param {object} options.autoLock auto-lock controller
  * @param {() => number} [options.now] clock, injectable for tests
  */
-export function createMessageRouter({ chrome, vault, autoLock, now = () => Date.now() }) {
+export function createMessageRouter({
+  chrome,
+  vault,
+  autoLock,
+  now = () => Date.now(),
+  breachService = createBreachService(),
+}) {
   const handlers = {
     // ---- Status and lifecycle (trusted contexts only) ----
 
@@ -142,7 +191,7 @@ export function createMessageRouter({ chrome, vault, autoLock, now = () => Date.
     'entries/create': {
       contentScript: false,
       handle: async ({ fields }) => {
-        const entry = createEntry(fields, now());
+        const entry = createEntry(withParsedTotp(fields), now());
         await vault.mutate((data) => addEntry(data, entry));
         return { entry: toSummary(entry) };
       },
@@ -157,7 +206,7 @@ export function createMessageRouter({ chrome, vault, autoLock, now = () => Date.
           if (existing === null) {
             throw new Error(`entry not found: ${id}`);
           }
-          updated = updateEntry(existing, changes, now());
+          updated = updateEntry(existing, withParsedTotp(changes), now());
           return replaceEntry(data, updated);
         });
         return { entry: toSummary(updated) };
@@ -188,6 +237,44 @@ export function createMessageRouter({ chrome, vault, autoLock, now = () => Date.
     },
 
     // ---- The narrow surface content scripts may reach ----
+
+    // ---- Security tooling (trusted contexts only) ----
+
+    'security/score': {
+      contentScript: false,
+      /**
+       * Vault health, computed from the real contents.
+       *
+       * Breach data is only included when the user has enabled breach
+       * checking; otherwise the score reports that it is missing rather than
+       * scoring as though nothing were breached.
+       */
+      handle: async () => {
+        const data = await vault.getData();
+        const breachedIds = data.settings?.breachCheckEnabled === true ? [] : undefined;
+        return computeSecurityScore(data.entries, { now: now(), breachedIds });
+      },
+    },
+
+    'security/checkBreach': {
+      contentScript: false,
+      /**
+       * Check one entry's password against the public breach corpus.
+       *
+       * Runs only on explicit user action, and only when the setting is on.
+       * The password never leaves the device — see `core/breach-check.js`.
+       */
+      handle: async ({ id }) => {
+        const data = await vault.getData();
+        const entry = findEntry(data, id);
+        if (entry === null) {
+          throw new Error(`entry not found: ${id}`);
+        }
+        return breachService.check(entry.password, {
+          enabled: data.settings?.breachCheckEnabled === true,
+        });
+      },
+    },
 
     'credentials/forUrl': {
       contentScript: true,

@@ -58,6 +58,7 @@ export default [
         document: 'readonly',
         window: 'readonly',
         globalThis: 'readonly',
+        localStorage: 'readonly',
         Element: 'readonly',
         Node: 'readonly',
         Event: 'readonly',

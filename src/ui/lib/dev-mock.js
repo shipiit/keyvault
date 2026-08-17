@@ -22,9 +22,10 @@ const DEMO_ENTRIES = [
     tags: ['dev'],
     folderId: null,
     hasTotp: true,
+    favorite: true,
     autoSubmit: false,
-    lastUsedAt: 1700000900000,
-    updatedAt: 1700000000000,
+    lastUsedAt: Date.now() - 3600000,
+    updatedAt: Date.now() - 3600000,
   },
   {
     id: 'demo-2',
@@ -34,9 +35,10 @@ const DEMO_ENTRIES = [
     tags: ['design'],
     folderId: null,
     hasTotp: false,
+    favorite: false,
     autoSubmit: false,
-    lastUsedAt: 1700000800000,
-    updatedAt: 1700000000000,
+    lastUsedAt: Date.now() - 2 * 86400000,
+    updatedAt: Date.now() - 2 * 86400000,
   },
   {
     id: 'demo-3',
@@ -46,9 +48,10 @@ const DEMO_ENTRIES = [
     tags: ['finance'],
     folderId: null,
     hasTotp: true,
+    favorite: false,
     autoSubmit: false,
     lastUsedAt: null,
-    updatedAt: 1700000000000,
+    updatedAt: Date.now() - 3 * 86400000,
   },
   {
     id: 'demo-4',
@@ -58,9 +61,10 @@ const DEMO_ENTRIES = [
     tags: ['infra'],
     folderId: null,
     hasTotp: false,
+    favorite: false,
     autoSubmit: true,
-    lastUsedAt: 1700000700000,
-    updatedAt: 1700000000000,
+    lastUsedAt: Date.now() - 7 * 86400000,
+    updatedAt: Date.now() - 7 * 86400000,
   },
 ];
 
@@ -135,7 +139,62 @@ const handlers = {
 
   'entries/get': async ({ id }) => {
     const summary = state.entries.find((entry) => entry.id === id);
-    return { entry: { ...summary, password: 'demo-password-not-real', notes: '' } };
+    return {
+      entry: {
+        ...summary,
+        password: 'unfurl-tractor-vivid-Quartz-99',
+        notes: 'Demo item — this vault is not real.',
+        totp: summary.hasTotp ? { secret: 'JBSWY3DPEHPK3PXP', period: 30 } : null,
+        createdAt: Date.now() - 200 * 86400000,
+        passwordHistory: summary.hasTotp
+          ? [{ password: 'previous-demo-password', changedAt: Date.now() - 40 * 86400000 }]
+          : [],
+      },
+    };
+  },
+
+  'entries/create': async ({ fields }) => {
+    const entry = {
+      id: `demo-${state.entries.length + 1}-${Math.floor(Date.now() / 1000)}`,
+      title: fields.title,
+      username: fields.username ?? '',
+      urls: fields.urls ?? [],
+      tags: [],
+      folderId: null,
+      hasTotp: fields.totpUri !== undefined,
+      favorite: false,
+      autoSubmit: fields.autoSubmit === true,
+      lastUsedAt: null,
+      updatedAt: Date.now(),
+    };
+    state.entries = [entry, ...state.entries];
+    return { entry };
+  },
+
+  'entries/update': async ({ id, changes }) => {
+    state.entries = state.entries.map((entry) =>
+      entry.id === id ? { ...entry, ...changes, updatedAt: Date.now() } : entry,
+    );
+    return { entry: state.entries.find((entry) => entry.id === id) };
+  },
+
+  'entries/delete': async ({ id }) => {
+    state.entries = state.entries.filter((entry) => entry.id !== id);
+    return { deleted: true };
+  },
+
+  'security/score': async () => ({
+    score: 87,
+    label: 'Good',
+    checked: state.entries.length,
+    issues: [],
+    counts: { breached: 0, reused: 1, weak: 0, old: 0 },
+    breachDataAvailable: false,
+  }),
+
+  'security/checkBreach': async () => {
+    await delay(600);
+    return { status: 'disabled' };
   },
 
   'entries/totp': async () => {

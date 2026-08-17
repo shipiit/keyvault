@@ -84,10 +84,26 @@
   --color-danger-bg: var(--color-danger-100);
   --color-success: var(--color-success-600);
   --color-warn: var(--color-warn-600);
+
+  /* Full-page vault chrome. The three columns need distinguishable grounds
+     without hard dividers doing all the work. */
+  --color-chrome: var(--color-ink-100);
+  --color-panel: white;
+  --color-field: var(--color-ink-50);
+  --color-selected: var(--color-brand-50);
+  --color-selected-border: var(--color-brand-300);
 }
 
+/*
+ * Dark palette.
+ *
+ * Applied both by system preference and by an explicit `data-theme="dark"`,
+ * so the in-app toggle can override the OS in either direction. The
+ * media-query rule is guarded against `data-theme="light"` — otherwise a
+ * user on a dark OS could never choose light.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --color-bg: var(--color-ink-950);
     --color-surface: var(--color-ink-900);
     --color-surface-hover: var(--color-ink-850);
@@ -104,7 +120,38 @@
     --color-danger-bg: oklch(0.28 0.08 25);
     --color-success: var(--color-success-400);
     --color-warn: var(--color-warn-400);
+
+    --color-chrome: oklch(0.155 0.008 265);
+    --color-panel: oklch(0.185 0.008 265);
+    --color-field: oklch(0.215 0.009 265);
+    --color-selected: oklch(0.26 0.05 275);
+    --color-selected-border: var(--color-brand-500);
   }
+}
+
+:root[data-theme='dark'] {
+  --color-bg: var(--color-ink-950);
+  --color-surface: var(--color-ink-900);
+  --color-surface-hover: var(--color-ink-850);
+  --color-border: var(--color-ink-800);
+  --color-border-strong: var(--color-ink-700);
+  --color-fg: var(--color-ink-50);
+  --color-fg-muted: var(--color-ink-400);
+  --color-fg-subtle: var(--color-ink-500);
+  --color-accent: var(--color-brand-500);
+  --color-accent-hover: var(--color-brand-400);
+  --color-accent-fg: white;
+  --color-ring: var(--color-brand-400);
+  --color-danger: var(--color-danger-400);
+  --color-danger-bg: oklch(0.28 0.08 25);
+  --color-success: var(--color-success-400);
+  --color-warn: var(--color-warn-400);
+
+  --color-chrome: oklch(0.155 0.008 265);
+  --color-panel: oklch(0.185 0.008 265);
+  --color-field: oklch(0.215 0.009 265);
+  --color-selected: oklch(0.26 0.05 275);
+  --color-selected-border: var(--color-brand-500);
 }
 
 @layer base {
