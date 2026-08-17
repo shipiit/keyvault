@@ -14,6 +14,7 @@
 import { cp, rm, mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { Script } from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 
@@ -120,16 +121,21 @@ for (const page of ['ui/popup.html', 'ui/vault.html']) {
   }
 }
 
-// A content script is loaded as a classic script, so a surviving top-level
-// `import` or `export` kills it with "Cannot use import statement outside a
-// module" — at runtime, on every page, with nothing failing at build time.
+// A content script is loaded as a classic script, so any surviving module
+// syntax kills it with "Cannot use import statement outside a module" — at
+// runtime, on every page, with nothing failing at build time.
+//
+// Parsed rather than pattern-matched. A regex for `^import` misses dynamic
+// forms, `export default`, and anything a bundler emits in an unexpected
+// shape; the parser answers the question the browser will actually ask.
 for (const entry of (manifest.content_scripts ?? []).flatMap((cs) => cs.js ?? [])) {
   const source = await readFile(join(dist, entry), 'utf8');
-  const offending = /^\s*(?:import|export)\s/m.exec(source);
-  if (offending !== null) {
+  try {
+    new Script(source, { filename: entry });
+  } catch (error) {
     throw new Error(
-      `${entry} contains a top-level "${offending[0].trim()}" statement. ` +
-        'Content scripts are classic scripts and cannot use ES modules — it must be bundled.',
+      `${entry} does not parse as a classic script: ${error.message}. ` +
+        'Content scripts cannot use ES modules — it must be bundled.',
     );
   }
 }
