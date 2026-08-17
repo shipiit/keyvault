@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  encrypt,
-  decrypt,
-  encryptString,
-  decryptString,
-  IV_BYTES,
-} from '../../src/core/cipher.js';
+import { encrypt, decrypt, encryptString, decryptString, IV_BYTES } from '../../src/core/cipher.js';
 import { deriveKey } from '../../src/core/kdf.js';
 import { utf8Encode } from '../../src/core/encoding.js';
 import { DecryptionError } from '../../src/core/errors.js';

@@ -62,7 +62,9 @@ describe('parseOtpauthUri', () => {
   });
 
   it('rejects a non-otpauth scheme', () => {
-    expect(() => parseOtpauthUri('https://example.com?secret=JBSWY3DPEHPK3PXP')).toThrow(ParseError);
+    expect(() => parseOtpauthUri('https://example.com?secret=JBSWY3DPEHPK3PXP')).toThrow(
+      ParseError,
+    );
   });
 
   it('rejects hotp, which this version does not support', () => {
@@ -80,7 +82,9 @@ describe('parseOtpauthUri', () => {
   });
 
   it('rejects a missing secret', () => {
-    expect(() => parseOtpauthUri('otpauth://totp/GitHub:a@b.com?issuer=GitHub')).toThrow(ParseError);
+    expect(() => parseOtpauthUri('otpauth://totp/GitHub:a@b.com?issuer=GitHub')).toThrow(
+      ParseError,
+    );
   });
 
   it('rejects a secret that is not valid base32', () => {

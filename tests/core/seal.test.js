@@ -6,6 +6,8 @@ import {
   VAULT_VERSION,
 } from '../../src/core/seal.js';
 import { InvalidPasswordError, ParseError } from '../../src/core/errors.js';
+import { encryptString } from '../../src/core/cipher.js';
+import { toBase64 } from '../../src/core/encoding.js';
 
 const FAST = { iterations: 1000 }; // keep tests fast; production uses 600k
 const sample = {
@@ -84,7 +86,9 @@ describe('unlockVault', () => {
 
   it('rejects a document missing required fields', async () => {
     await expect(unlockVault({ version: VAULT_VERSION }, 'pw')).rejects.toThrow(ParseError);
-    await expect(unlockVault({ version: VAULT_VERSION, kdf: {} }, 'pw')).rejects.toThrow(ParseError);
+    await expect(unlockVault({ version: VAULT_VERSION, kdf: {} }, 'pw')).rejects.toThrow(
+      ParseError,
+    );
   });
 
   it('rejects a non-object document', async () => {
@@ -102,6 +106,26 @@ describe('unlockVault', () => {
     const doc = await createVaultDocument('pw', sample, FAST);
     delete doc.verifier;
     await expect(unlockVault(doc, 'pw')).rejects.toThrow(/verifier/);
+  });
+});
+
+describe('unlockVault — tampering with the verifier', () => {
+  it('rejects a verifier that decrypts cleanly but to the wrong plaintext', async () => {
+    // An attacker who can write to storage could swap in a verifier they
+    // encrypted themselves. It must not be enough that the blob decrypts —
+    // the recovered plaintext has to be the expected constant.
+    const doc = await createVaultDocument('pw', sample, FAST);
+    const { key } = await unlockVault(doc, 'pw');
+    doc.verifier = toBase64(await encryptString(key, 'attacker-chosen plaintext'));
+    await expect(unlockVault(doc, 'pw')).rejects.toThrow(InvalidPasswordError);
+  });
+
+  it('rejects a payload that decrypts to valid UTF-8 but not valid JSON', async () => {
+    const doc = await createVaultDocument('pw', sample, FAST);
+    const { key } = await unlockVault(doc, 'pw');
+    doc.data = toBase64(await encryptString(key, 'this is not json'));
+    await expect(unlockVault(doc, 'pw')).rejects.toThrow(ParseError);
+    await expect(unlockVault(doc, 'pw')).rejects.toThrow(/not valid JSON/i);
   });
 });
 

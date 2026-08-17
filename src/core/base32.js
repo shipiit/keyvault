@@ -56,10 +56,7 @@ export function base32Decode(input) {
     throw new ParseError('base32 input must be a string');
   }
 
-  const cleaned = input
-    .replace(/[\s-]/g, '')
-    .replace(/=+$/, '')
-    .toUpperCase();
+  const cleaned = input.replace(/[\s-]/g, '').replace(/=+$/, '').toUpperCase();
   if (cleaned.length === 0) {
     return new Uint8Array();
   }
