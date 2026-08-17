@@ -561,10 +561,13 @@ export function createMessageRouter({
        * autofill runs at all, and whether the match is unambiguous, are
        * decisions a page must not be able to influence.
        *
-       * Only an unambiguous match fills. With two saved accounts for a site
-       * there is no way to know which the user wants, and silently choosing
-       * one puts the wrong username in front of them — or worse, quietly
-       * changes which account they are about to log into.
+       * With several accounts saved for a site, the most recently used one
+       * fills. Declining on ambiguity was the stricter choice and it was
+       * wrong in practice: the user sees nothing happen and has no way to
+       * find out why, which reads as autofill being broken. Every other
+       * manager fills the most recent and lets the popup switch accounts,
+       * and the failure mode — logging into your other account on the same
+       * site — is visible and recoverable in a way silence is not.
        */
       handle: async ({ url }) => {
         if (toHostname(url) === null) {
@@ -576,9 +579,10 @@ export function createMessageRouter({
           return { fill: null, reason: 'turned off' };
         }
 
+        // Already sorted most-recently-used first.
         const matches = entriesForUrl(data.entries, url);
-        if (matches.length !== 1) {
-          return { fill: null, reason: matches.length === 0 ? 'no match' : 'more than one match' };
+        if (matches.length === 0) {
+          return { fill: null, reason: 'no match' };
         }
 
         const entry = matches[0];
@@ -596,6 +600,9 @@ export function createMessageRouter({
             id: entry.id,
             username: entry.username,
             password: entry.password,
+            // So the UI can say "filled X of N" rather than leaving the user
+            // wondering which account was used.
+            alternatives: matches.length - 1,
             // Filling and submitting stay separate decisions. Auto-submit
             // is per entry and off unless the user turned it on.
             autoSubmit: entry.autoSubmit === true,

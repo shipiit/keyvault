@@ -54,6 +54,40 @@ export async function checkDeviceUnlockSupport() {
 }
 
 /**
+ * Turn a WebAuthn failure into something a user can act on.
+ *
+ * The raw errors are unhelpful — `NotAllowedError` covers both "you
+ * cancelled" and "this origin may not do that" — so the likely cause is
+ * named alongside the original message rather than instead of it.
+ *
+ * @param {unknown} error
+ * @returns {Error}
+ */
+function explain(error) {
+  const name = error?.name ?? 'Error';
+  const detail = error?.message ?? String(error);
+
+  if (name === 'SecurityError') {
+    return new Error(
+      'Chrome will not allow device authentication from an extension page. This is a browser ' +
+        `restriction, not something KeyVault can work around. (${name}: ${detail})`,
+    );
+  }
+  if (name === 'NotAllowedError') {
+    return new Error(
+      'Device authentication was cancelled or refused. If you did not see a Touch ID prompt, ' +
+        `Chrome may be blocking it on this page. (${name}: ${detail})`,
+    );
+  }
+  if (name === 'NotSupportedError') {
+    return new Error(
+      `This device cannot derive a key from its authenticator, which KeyVault needs. (${name})`,
+    );
+  }
+  return new Error(`${name}: ${detail}`);
+}
+
+/**
  * Register a credential and take its first PRF output.
  *
  * Runs once, when the user turns device unlock on, and only while the vault
@@ -69,20 +103,25 @@ export async function registerDeviceUnlock({ accountName }) {
   // A stable id keeps repeat registrations from piling up credentials.
   const userId = new TextEncoder().encode('keyvault-local-vault');
 
-  const credential = await navigator.credentials.create({
-    publicKey: {
-      challenge,
-      rp: { name: 'KeyVault' },
-      user: { id: userId, name: accountName, displayName: accountName },
-      pubKeyCredParams: [
-        { type: 'public-key', alg: -7 }, // ES256
-        { type: 'public-key', alg: -257 }, // RS256
-      ],
-      authenticatorSelection: AUTHENTICATOR_SELECTION,
-      timeout: 60000,
-      extensions: { prf: {} },
-    },
-  });
+  let credential;
+  try {
+    credential = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: 'KeyVault' },
+        user: { id: userId, name: accountName, displayName: accountName },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: -7 }, // ES256
+          { type: 'public-key', alg: -257 }, // RS256
+        ],
+        authenticatorSelection: AUTHENTICATOR_SELECTION,
+        timeout: 60000,
+        extensions: { prf: {} },
+      },
+    });
+  } catch (error) {
+    throw explain(error);
+  }
 
   if (credential === null) {
     throw new Error('device authentication was cancelled');
@@ -112,15 +151,20 @@ export async function registerDeviceUnlock({ accountName }) {
 export async function evaluatePrf(credentialId) {
   const challenge = crypto.getRandomValues(new Uint8Array(32));
 
-  const assertion = await navigator.credentials.get({
-    publicKey: {
-      challenge,
-      allowCredentials: [{ type: 'public-key', id: fromBase64Url(credentialId) }],
-      userVerification: 'required',
-      timeout: 60000,
-      extensions: { prf: { eval: { first: PRF_SALT } } },
-    },
-  });
+  let assertion;
+  try {
+    assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        allowCredentials: [{ type: 'public-key', id: fromBase64Url(credentialId) }],
+        userVerification: 'required',
+        timeout: 60000,
+        extensions: { prf: { eval: { first: PRF_SALT } } },
+      },
+    });
+  } catch (error) {
+    throw explain(error);
+  }
 
   if (assertion === null) {
     throw new Error('device authentication was cancelled');

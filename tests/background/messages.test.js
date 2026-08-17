@@ -208,15 +208,21 @@ describe('message router', () => {
       expect(res.data.fill.password).toBe('S3cr3t!');
     });
 
-    it('refuses when more than one account matches', async () => {
-      // Silently choosing one puts the wrong username in front of the user,
-      // or quietly changes which account they are about to log into.
-      await addGithubEntry();
+    it('fills the most recently used when several accounts match', async () => {
+      // Declining on ambiguity meant the user saw nothing happen and had no
+      // way to find out why, which reads as autofill being broken.
+      const first = await addGithubEntry();
       await addGithubEntry({ username: 'second@example.com' });
 
+      // Using the first one makes it the most recent.
+      await router.handle(
+        { type: 'credentials/fill', payload: { id: first, url: 'https://github.com' } },
+        PAGE,
+      );
+
       const res = await ask();
-      expect(res.data.fill).toBeNull();
-      expect(res.data.reason).toMatch(/more than one/);
+      expect(res.data.fill.username).toBe('rahul@example.com');
+      expect(res.data.fill.alternatives).toBe(1);
     });
 
     it('returns nothing for a site with no saved login', async () => {
@@ -260,9 +266,7 @@ describe('message router', () => {
 
     it('does not leak anything when it declines', async () => {
       await addGithubEntry();
-      await addGithubEntry({ username: 'second@example.com' });
-
-      expect(JSON.stringify(await ask())).not.toContain('S3cr3t!');
+      expect(JSON.stringify(await ask('https://elsewhere.example'))).not.toContain('S3cr3t!');
     });
 
     it('records the entry as used, so the popup ranks it first', async () => {
