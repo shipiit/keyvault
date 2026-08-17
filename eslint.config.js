@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import react from 'eslint-plugin-react';
 
 export default [
   {
@@ -32,9 +33,32 @@ export default [
   },
   {
     // The extension layers may use Chrome APIs; src/core may not.
-    files: ['src/background/**/*.js', 'src/content/**/*.js', 'src/ui/**/*.js'],
+    files: ['src/background/**/*.js', 'src/content/**/*.js', 'src/ui/**/*.{js,jsx}'],
+    plugins: { react },
+    rules: {
+      // Without this, every component referenced only from JSX is reported
+      // as unused.
+      'react/jsx-uses-vars': 'error',
+      'react/jsx-uses-react': 'off',
+    },
     languageOptions: {
-      globals: { chrome: 'readonly' },
+      parserOptions: { ecmaFeatures: { jsx: true } },
+      globals: {
+        chrome: 'readonly',
+        // Browser and worker globals. Available in the extension layers but
+        // deliberately still forbidden inside src/core, which must run in
+        // plain Node so the cryptography stays auditable without a browser.
+        AbortController: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        fetch: 'readonly',
+        navigator: 'readonly',
+        document: 'readonly',
+        window: 'readonly',
+        globalThis: 'readonly',
+      },
     },
   },
   {

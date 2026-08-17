@@ -4,23 +4,20 @@
   "version": "0.1.0",
   "description": "A local-only, zero-knowledge password manager. Your vault never leaves this device.",
   "minimum_chrome_version": "116",
-
   "background": {
     "service_worker": "background/service-worker.js",
     "type": "module"
   },
-
   "action": {
-    "default_title": "KeyVault"
+    "default_title": "KeyVault",
+    "default_popup": "ui/popup.html"
   },
-
-  "permissions": ["storage", "alarms", "activeTab"],
-
+  "permissions": ["storage", "alarms", "activeTab", "tabs"],
   "host_permissions": [],
-
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
-
-  "icons": {}
+  "icons": {},
+  "options_page": "ui/vault.html",
+  "optional_host_permissions": ["https://api.pwnedpasswords.com/*"]
 }

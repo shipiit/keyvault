@@ -24,15 +24,25 @@ describe('manifest.json', () => {
     expect(Number(manifest.minimum_chrome_version)).toBeGreaterThanOrEqual(116);
   });
 
-  it('requests no host permissions', () => {
+  it('requests no host permissions at install time', () => {
     // Autofill uses activeTab plus explicit user action instead of blanket
     // host access. A password manager asking for <all_urls> up front is
     // asking for far more trust than it needs at this stage.
     expect(manifest.host_permissions).toEqual([]);
   });
 
+  it('keeps the breach-check host optional, so a default install has no network reach', () => {
+    // Breach checking is the only feature that talks to a network at all.
+    // Listing its host as optional means Chrome grants it only when the user
+    // turns the feature on, and the permission can be revoked afterwards.
+    expect(manifest.optional_host_permissions).toEqual(['https://api.pwnedpasswords.com/*']);
+    expect(manifest.host_permissions).not.toContain('https://api.pwnedpasswords.com/*');
+  });
+
   it('requests only the permissions it uses', () => {
-    expect(new Set(manifest.permissions)).toEqual(new Set(['storage', 'alarms', 'activeTab']));
+    expect(new Set(manifest.permissions)).toEqual(
+      new Set(['storage', 'alarms', 'activeTab', 'tabs']),
+    );
   });
 
   it('forbids remote and inline script via CSP', () => {

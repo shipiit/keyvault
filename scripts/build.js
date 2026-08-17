@@ -12,6 +12,7 @@
  */
 
 import { cp, rm, mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 
@@ -35,7 +36,20 @@ async function listFiles(dir, base = dir) {
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-await cp(src, dist, { recursive: true });
+
+// Copy the manifest plus the unbundled background and core.
+await cp(join(src, 'manifest.json'), join(dist, 'manifest.json'));
+await cp(join(src, 'background'), join(dist, 'background'), { recursive: true });
+await cp(join(src, 'core'), join(dist, 'core'), { recursive: true });
+
+// The UI is compiled by Vite (Tailwind needs a build step, and the CSP
+// forbids loading it from a CDN). Its output already lands in dist/ui.
+await new Promise((resolvePromise, rejectPromise) => {
+  const vite = spawn('npx', ['vite', 'build'], { cwd: root, stdio: 'inherit' });
+  vite.on('exit', (code) =>
+    code === 0 ? resolvePromise() : rejectPromise(new Error(`vite build failed (${code})`)),
+  );
+});
 
 // The manifest version is the one users see; keep it honest against package.json.
 const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));

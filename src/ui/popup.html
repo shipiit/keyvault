@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KeyVault</title>
+    <style>
+      /* Sized here rather than in the stylesheet: Chrome measures the popup
+         before CSS loads, and an unsized body opens as a thin sliver. */
+      html,
+      body {
+        width: 380px;
+        height: 540px;
+        margin: 0;
+        overflow: hidden;
+      }
+      #root {
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./popup.jsx"></script>
+  </body>
+</html>

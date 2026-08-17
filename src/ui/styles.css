@@ -1,0 +1,153 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens.
+ *
+ * Every colour, radius, duration and easing used anywhere in the UI is
+ * defined here. Components reference tokens only — no bare hex, no raw
+ * pixel values, no magic durations. That is what keeps light and dark
+ * genuinely in sync rather than dark being a retrofit.
+ *
+ * Neutrals are very slightly cool rather than pure grey: a pure #808080
+ * scale reads as dead next to a saturated brand colour.
+ */
+@theme {
+  /* Brand — indigo. Used sparingly: primary action, focus ring, active state. */
+  --color-brand-50: oklch(0.97 0.014 275);
+  --color-brand-100: oklch(0.93 0.032 275);
+  --color-brand-200: oklch(0.87 0.06 275);
+  --color-brand-300: oklch(0.79 0.1 275);
+  --color-brand-400: oklch(0.7 0.15 275);
+  --color-brand-500: oklch(0.62 0.19 275);
+  --color-brand-600: oklch(0.55 0.2 275);
+  --color-brand-700: oklch(0.47 0.18 275);
+  --color-brand-800: oklch(0.39 0.14 275);
+  --color-brand-900: oklch(0.32 0.1 275);
+  --color-brand-950: oklch(0.22 0.07 275);
+
+  /* Cool neutrals */
+  --color-ink-50: oklch(0.985 0.002 265);
+  --color-ink-100: oklch(0.96 0.003 265);
+  --color-ink-200: oklch(0.92 0.005 265);
+  --color-ink-300: oklch(0.86 0.007 265);
+  --color-ink-400: oklch(0.7 0.01 265);
+  --color-ink-500: oklch(0.56 0.012 265);
+  --color-ink-600: oklch(0.45 0.012 265);
+  --color-ink-700: oklch(0.36 0.011 265);
+  --color-ink-800: oklch(0.27 0.01 265);
+  --color-ink-850: oklch(0.22 0.009 265);
+  --color-ink-900: oklch(0.18 0.008 265);
+  --color-ink-950: oklch(0.13 0.007 265);
+
+  /* Feedback */
+  --color-danger-100: oklch(0.93 0.04 25);
+  --color-danger-400: oklch(0.7 0.16 25);
+  --color-danger-500: oklch(0.62 0.2 25);
+  --color-danger-600: oklch(0.55 0.21 25);
+  --color-success-400: oklch(0.75 0.15 150);
+  --color-success-600: oklch(0.55 0.14 150);
+  --color-warn-400: oklch(0.8 0.14 75);
+  --color-warn-600: oklch(0.6 0.14 75);
+
+  /* Motion. Short and decisive — a popup that eases slowly feels broken. */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-100: 100ms;
+  --dur-150: 150ms;
+  --dur-200: 200ms;
+
+  --radius-field: 0.5rem;
+  --radius-card: 0.75rem;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/*
+ * Semantic layer. Components use these, never the ramps above, so a theme
+ * change is one block rather than a find-and-replace across the codebase.
+ */
+:root {
+  --color-bg: var(--color-ink-50);
+  --color-surface: white;
+  --color-surface-hover: var(--color-ink-100);
+  --color-border: var(--color-ink-200);
+  --color-border-strong: var(--color-ink-300);
+  --color-fg: var(--color-ink-900);
+  --color-fg-muted: var(--color-ink-600);
+  --color-fg-subtle: var(--color-ink-500);
+  --color-accent: var(--color-brand-600);
+  --color-accent-hover: var(--color-brand-700);
+  --color-accent-fg: white;
+  --color-ring: var(--color-brand-500);
+  --color-danger: var(--color-danger-600);
+  --color-danger-bg: var(--color-danger-100);
+  --color-success: var(--color-success-600);
+  --color-warn: var(--color-warn-600);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: var(--color-ink-950);
+    --color-surface: var(--color-ink-900);
+    --color-surface-hover: var(--color-ink-850);
+    --color-border: var(--color-ink-800);
+    --color-border-strong: var(--color-ink-700);
+    --color-fg: var(--color-ink-50);
+    --color-fg-muted: var(--color-ink-400);
+    --color-fg-subtle: var(--color-ink-500);
+    --color-accent: var(--color-brand-500);
+    --color-accent-hover: var(--color-brand-400);
+    --color-accent-fg: white;
+    --color-ring: var(--color-brand-400);
+    --color-danger: var(--color-danger-400);
+    --color-danger-bg: oklch(0.28 0.08 25);
+    --color-success: var(--color-success-400);
+    --color-warn: var(--color-warn-400);
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * Focus is never removed, only restyled. Keyboard operation is the primary
+   * path in a password manager — the popup opens under the cursor but users
+   * type immediately.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-field);
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Secrets and codes are read character by character; proportional digits
+     make transposition errors easy to miss. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

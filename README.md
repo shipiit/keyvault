@@ -15,9 +15,12 @@ TOTP two-factor secrets in an encrypted vault that never leaves your machine.
 ## Why another password manager
 
 Most browser password managers ask you to trust a server. KeyVault has no server
-to trust: there is no backend, no account, no telemetry, and no network code
-anywhere in the extension. Your vault is a single encrypted blob in your own
-browser's storage.
+to trust: there is no backend, no account, and no telemetry. Your vault is a
+single encrypted blob in your own browser's storage.
+
+One optional feature — breach checking — talks to a network, and only if you
+turn it on. See [Breach checking](#breach-checking) for exactly what it sends
+and what it does not.
 
 That design has a real cost, stated plainly: **if you forget your master
 password, your vault is unrecoverable.** There is no reset link, because there is
@@ -28,15 +31,17 @@ vault.
 
 ## Planned features
 
-|                        |                                                                                                       |
-| ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| **Encrypted vault**    | AES-GCM-256 under a PBKDF2-derived key. Auto-locks on a timer and on browser close.                   |
-| **Autofill**           | Detects login forms and fills them, including React/Vue apps that ignore naive value assignment.      |
-| **Save prompt**        | Offers to save or update a credential after you log in.                                               |
-| **Auto-login**         | Opt-in **per credential**, off by default. See [Security](#security).                                 |
-| **TOTP 2FA**           | Scan a QR code, upload a QR image, or paste an `otpauth://` URI. Live 6-digit codes with a countdown. |
-| **Password generator** | Configurable length and character classes, built on a bias-free CSPRNG.                               |
-| **Import / export**    | Encrypted backup files, plus importers for 1Password, Bitwarden, LastPass, and Chrome CSV.            |
+|                        |                                                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Encrypted vault**    | AES-GCM-256 under a PBKDF2-derived key. Auto-locks on a timer and on browser close.                            |
+| **Autofill**           | Detects login forms and fills them, including React/Vue apps that ignore naive value assignment.               |
+| **Save prompt**        | Offers to save or update a credential after you log in.                                                        |
+| **Auto-login**         | Opt-in **per credential**, off by default. See [Security](#security).                                          |
+| **TOTP 2FA**           | Scan a QR code, upload a QR image, or paste an `otpauth://` URI. Live 6-digit codes with a countdown.          |
+| **Password generator** | Configurable length and character classes, built on a bias-free CSPRNG.                                        |
+| **Import / export**    | Encrypted backup files, plus importers for 1Password, Bitwarden, LastPass, and Chrome CSV.                     |
+| **Password strength**  | Offline, pattern-aware estimate with an honest time-to-crack figure.                                           |
+| **Breach check**       | Optional, off by default. Tells you if a password appears in public breach data, without sending the password. |
 
 ---
 
@@ -44,15 +49,15 @@ vault.
 
 ### How the vault is protected
 
-| Layer          | Choice                                                                                      |
-| -------------- | ------------------------------------------------------------------------------------------- |
-| Encryption     | AES-GCM-256, fresh random 96-bit IV per write                                               |
-| Key derivation | PBKDF2-SHA256, 600,000 iterations, 16-byte per-vault salt                                   |
-| Unlock check   | Two-stage verifier record — never a stored password or password hash                        |
-| At rest        | `chrome.storage.local` only. Never `chrome.storage.sync`, which round-trips through Google. |
-| In memory      | The derived key is never written to disk and is cleared when the browser closes             |
-| Network        | None. The extension makes no outbound requests of any kind.                                 |
-| CSP            | `script-src 'self'` — no remote code, no `eval`                                             |
+| Layer          | Choice                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------- |
+| Encryption     | AES-GCM-256, fresh random 96-bit IV per write                                                                 |
+| Key derivation | PBKDF2-SHA256, 600,000 iterations, 16-byte per-vault salt                                                     |
+| Unlock check   | Two-stage verifier record — never a stored password or password hash                                          |
+| At rest        | `chrome.storage.local` only. Never `chrome.storage.sync`, which round-trips through Google.                   |
+| In memory      | The derived key is never written to disk and is cleared when the browser closes                               |
+| Network        | None by default. Breach checking is the only feature that makes a request, and it is off until you enable it. |
+| CSP            | `script-src 'self'` — no remote code, no `eval`                                                               |
 
 ### Design decisions worth knowing about
 
@@ -80,6 +85,56 @@ a WebAssembly binary, which conflicts with the extension's content-security
 policy and materially increases bundle size. 600,000-iteration PBKDF2-SHA256 is
 what Bitwarden's browser extension ships and meets the OWASP minimum. Measured
 unlock cost is ~157 ms.
+
+### Breach checking
+
+Optional, **off by default**, and the only part of KeyVault that touches a
+network.
+
+When you enable it, KeyVault can tell you whether a password appears in public
+breach data. It does this without sending the password anywhere, using the
+k-anonymity range protocol — the same mechanism 1Password, Bitwarden, and
+Chrome's own leak detection use:
+
+1. Your password is hashed with SHA-1, locally.
+2. Only the **first five hex characters** of that hash are sent.
+3. The server returns every hash suffix it holds under that prefix — typically
+   several hundred.
+4. The match happens **on your device**.
+
+The server therefore learns a 20-bit prefix shared by roughly one password in a
+million. It cannot tell which password you checked, or even whether there was a
+match. Requests carry no cookies, no referrer, and no cache entry, and ask for
+padded responses so an observer cannot infer the answer from response size.
+
+What KeyVault will not do:
+
+- Send your password, your full password hash, your username, or the site
+- Check anything while the feature is off — there is no request at all, not a
+  request whose result is discarded
+- Report "safe" when the check failed. A network error is reported as
+  _unknown_, never as a clean result
+
+Two honest caveats:
+
+- **An occurrence count is not proof your account was breached.** It means the
+  password appears in breach corpora, and so is in every attacker's wordlist.
+  That is the real risk, whether or not it leaked from a site you use.
+- **A clean result is not proof of safety.** It means the password has not been
+  seen leaking, not that it is strong.
+
+The host permission for this is declared as _optional_, so a default install
+has no network reach at all — Chrome only grants it when you switch the feature
+on, and you can revoke it afterwards.
+
+### Password strength
+
+Entirely offline, no network, no dependency. The estimator is deliberately
+conservative: it reports the entropy an attacker faces knowing the _pattern_
+your password follows, so `Sunlight47!` is scored on the capital-then-digits
+shape that cracking rules encode, not on the flattering
+`log2(charset^length)` figure. Time-to-crack assumes a fast offline attack at
+10^11 guesses per second — the attacker's best case, not ours.
 
 ### Threat model
 
