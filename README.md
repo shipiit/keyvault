@@ -172,11 +172,10 @@ import/export.
 
 ## Installing it
 
-KeyVault is not on the Chrome Web Store yet, so it is installed as an unpacked
-extension. The steps are the same on every Chromium browser; only the settings
-URL differs.
+Full step-by-step guide, including every Chromium browser and troubleshooting:
+**[`INSTALL.md`](INSTALL.md)**
 
-### 1. Build it
+The short version:
 
 ```sh
 git clone https://github.com/shipiit/keyvault.git
@@ -185,58 +184,8 @@ npm install
 npm run build
 ```
 
-That produces a `dist/` folder. That folder _is_ the extension.
-
-### 2. Load it
-
-| Browser     | Open this              | Then                                                                         |
-| ----------- | ---------------------- | ---------------------------------------------------------------------------- |
-| **Chrome**  | `chrome://extensions`  | Turn on **Developer mode** (top right) → **Load unpacked** → pick `dist/`    |
-| **Edge**    | `edge://extensions`    | Turn on **Developer mode** (left sidebar) → **Load unpacked** → pick `dist/` |
-| **Brave**   | `brave://extensions`   | Turn on **Developer mode** (top right) → **Load unpacked** → pick `dist/`    |
-| **Opera**   | `opera://extensions`   | Turn on **Developer mode** (top right) → **Load unpacked** → pick `dist/`    |
-| **Vivaldi** | `vivaldi://extensions` | Turn on **Developer mode** (top right) → **Load unpacked** → pick `dist/`    |
-| **Arc**     | `arc://extensions`     | Turn on **Developer mode** (top right) → **Load unpacked** → pick `dist/`    |
-
-Pick the `dist` **folder** itself — not a file inside it, and not the project
-root.
-
-### 3. Pin it
-
-Click the puzzle-piece icon in the toolbar and pin KeyVault, so the popup is
-one click away.
-
-### 4. Create your vault
-
-Click the KeyVault icon and choose a master password. It must be at least 12
-characters.
-
-> **Read this before you continue.** Your vault is encrypted with this password
-> and stored only on this device. If you forget it, the vault cannot be
-> recovered — there is no reset link and no support account, because there is no
-> server holding a spare key. Export a backup as soon as you have added
-> anything you care about.
-
-### Updating after a code change
-
-```sh
-npm run build
-```
-
-Then open your browser's extensions page and click the **reload** icon on the
-KeyVault card. A change to the popup or vault page only needs the popup
-reopening; a change to the background or content script needs the reload.
-
-### Troubleshooting
-
-| Symptom                                       | Cause                                                                                                 |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| "Manifest file is missing or unreadable"      | You selected the project root instead of `dist/`.                                                     |
-| The extension loads but the icon does nothing | `npm run build` was not run, or was run before the last code change.                                  |
-| "KeyVault will not unlock on this browser"    | The browser is older than Chromium 116. See [Browser support](#browser-support) — this is deliberate. |
-| Autofill does nothing on a site               | The vault is locked, or no entry is saved for that domain. Open the popup to check.                   |
-
----
+Then open `chrome://extensions`, turn on **Developer mode**, click **Load
+unpacked**, and select the **`dist` folder**.
 
 ### Browser support
 
@@ -321,6 +270,7 @@ Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before changing anything under
 
 | Document                             | Contents                                                |
 | ------------------------------------ | ------------------------------------------------------- |
+| [`INSTALL.md`](INSTALL.md)           | Step-by-step install for every Chromium browser         |
 | [`ROADMAP.md`](ROADMAP.md)           | What is left to build, in order, and the open questions |
 | [`SECURITY.md`](SECURITY.md)         | Threat model and vulnerability reporting                |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Setup and the rules governing `src/core/`               |

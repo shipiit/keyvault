@@ -70,6 +70,13 @@ export default [
     },
   },
   {
+    // Build scripts run in Node, not the browser.
+    files: ['scripts/**/*.js'],
+    languageOptions: {
+      globals: { Buffer: 'readonly', process: 'readonly', console: 'readonly' },
+    },
+  },
+  {
     // Content-script tests run under jsdom.
     files: ['tests/content/**/*.js'],
     languageOptions: {

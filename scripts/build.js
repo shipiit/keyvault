@@ -43,6 +43,7 @@ await cp(join(src, 'manifest.json'), join(dist, 'manifest.json'));
 await cp(join(src, 'background'), join(dist, 'background'), { recursive: true });
 await cp(join(src, 'content'), join(dist, 'content'), { recursive: true });
 await cp(join(src, 'core'), join(dist, 'core'), { recursive: true });
+await cp(join(src, 'icons'), join(dist, 'icons'), { recursive: true });
 
 // The UI is compiled by Vite (Tailwind needs a build step, and the CSP
 // forbids loading it from a CDN). Its output already lands in dist/ui.
@@ -69,6 +70,10 @@ const referenced = [
   manifest.action?.default_popup,
   manifest.options_page,
   ...(manifest.content_scripts ?? []).flatMap((entry) => entry.js ?? []),
+  // Icons too: a missing one shows as a silent grey placeholder rather than
+  // an error, which is exactly the kind of thing that ships unnoticed.
+  ...Object.values(manifest.icons ?? {}),
+  ...Object.values(manifest.action?.default_icon ?? {}),
 ].filter(Boolean);
 
 for (const relative of referenced) {
