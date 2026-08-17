@@ -3,6 +3,7 @@ import { Icon } from './primitives.jsx';
 import { Button } from '../components/Button.jsx';
 import { recoveryKit } from '../lib/messaging.js';
 import { forbiddenFieldsIn } from '../../core/recovery-kit.js';
+import { openPrintableKit } from '../lib/printable-kit.js';
 
 /**
  * The recovery kit — a page designed to be printed and then put away.
@@ -21,6 +22,13 @@ import { forbiddenFieldsIn } from '../../core/recovery-kit.js';
 export function RecoveryKit() {
   const [kit, setKit] = useState(null);
   const [error, setError] = useState(null);
+
+  // Held in this component and nowhere else: never sent to the background,
+  // never written to storage, gone the moment the page closes. The only place
+  // either value ends up is the sheet the user prints.
+  const [masterPassword, setMasterPassword] = useState('');
+  const [backupLocation, setBackupLocation] = useState('');
+  const [reveal, setReveal] = useState(false);
 
   useEffect(() => {
     recoveryKit()
@@ -71,7 +79,20 @@ export function RecoveryKit() {
           stealing — no password, no key, no entry — so its only job is to tell a future you, or
           somebody sorting out your affairs, what this vault is and how to open it.
         </p>
-        <Button variant="primary" size="sm" onClick={() => window.print()} disabled={kit === null}>
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={kit === null}
+          onClick={() => {
+            // A separate tab, not this page. The popup cannot print at all,
+            // and this page is themed — a dark-mode sheet forced onto white
+            // paper prints white on white.
+            const opened = openPrintableKit(kit, { masterPassword, backupLocation });
+            if (!opened) {
+              setError('Chrome blocked the print window. Allow pop-ups for this page and retry.');
+            }
+          }}
+        >
           <Icon.Document className="size-4" />
           Print
         </Button>
@@ -120,10 +141,29 @@ export function RecoveryKit() {
             Write it here by hand. KeyVault does not know it and cannot print it — it is never
             stored anywhere, which is the reason nobody can be asked to reset it.
           </p>
-          <div className="mt-2 rounded-[var(--radius-field)] border-2 border-dashed border-[var(--color-border-strong)] p-4">
-            <div className="h-8 border-b border-[var(--color-border-strong)]" />
-            <div className="mt-4 h-8 border-b border-[var(--color-border-strong)]" />
+          <div className="mt-2 flex gap-2 print:hidden">
+            <input
+              type={reveal ? 'text' : 'password'}
+              value={masterPassword}
+              onInput={(event) => setMasterPassword(event.currentTarget.value)}
+              placeholder="Type it to print it, or leave blank to write it by hand"
+              autoComplete="off"
+              spellcheck={false}
+              aria-label="Master password to print"
+              className="min-w-0 flex-1 rounded-[var(--radius-field)] bg-[var(--color-field)] px-3 py-2 font-mono text-sm"
+            />
+            <Button variant="ghost" size="sm" onClick={() => setReveal(!reveal)}>
+              {reveal ? 'Hide' : 'Show'}
+            </Button>
           </div>
+          {masterPassword.trim() !== '' && (
+            <p className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-[var(--color-warn)]">
+              <Icon.Shield className="mt-px size-4 shrink-0" />
+              The printed sheet will then open your vault on its own. It goes through the print
+              spooler on the way, so avoid a shared or networked printer, and keep the paper where
+              you keep a passport rather than in a desk drawer.
+            </p>
+          )}
         </section>
 
         <section className="mt-6">
@@ -134,8 +174,33 @@ export function RecoveryKit() {
             A backup is an encrypted file you exported from Settings. Without one, this sheet cannot
             rebuild anything on a new machine — the password alone is not enough.
           </p>
-          <div className="mt-2 rounded-[var(--radius-field)] border-2 border-dashed border-[var(--color-border-strong)] p-4">
-            <div className="h-8 border-b border-[var(--color-border-strong)]" />
+          <div className="mt-2 flex gap-2 print:hidden">
+            <input
+              type="text"
+              value={backupLocation}
+              onInput={(event) => setBackupLocation(event.currentTarget.value)}
+              placeholder="e.g. Documents/keyvault-backup.json, or the safe it is in"
+              autoComplete="off"
+              aria-label="Where the backup file is"
+              className="min-w-0 flex-1 rounded-[var(--radius-field)] bg-[var(--color-field)] px-3 py-2 text-sm"
+            />
+            <label className="shrink-0">
+              {/* The browser gives a chosen file's name but never its folder,
+                  so this fills in what it can and the rest is typed. */}
+              <input
+                type="file"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file !== undefined) {
+                    setBackupLocation(file.name);
+                  }
+                }}
+              />
+              <span className="inline-flex cursor-pointer items-center rounded-[var(--radius-field)] border border-[var(--color-border)] px-3 py-2 text-sm hover:bg-[var(--color-field)]">
+                Choose file
+              </span>
+            </label>
           </div>
         </section>
 

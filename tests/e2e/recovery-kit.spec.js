@@ -48,7 +48,7 @@ test('the sheet identifies the vault without revealing anything', async ({ vault
   expect(printed).not.toContain('Bank');
 });
 
-test('it says the master password cannot be printed, and leaves room to write it', async ({
+test('it offers a field for the password rather than assuming it is written by hand', async ({
   vaultPage,
 }) => {
   // The blank box is the feature. Printing the password would send it through
@@ -60,8 +60,75 @@ test('it says the master password cannot be printed, and leaves room to write it
     .click();
 
   const sheet = vaultPage.locator('#recovery-sheet');
-  await expect(sheet).toContainText(/write it here by hand/i);
   await expect(sheet).toContainText(/never stored anywhere/i);
+  await expect(sheet.getByLabel(/master password to print/i)).toBeVisible();
+});
+
+test('printing opens a separate tab, since the popup cannot print', async ({
+  context,
+  vaultPage,
+}) => {
+  // The reported bug: pressing Print did nothing. window.print() was being
+  // called correctly — but from a context Chrome ignores, onto a dark-themed
+  // sheet that would have printed white on white anyway.
+  await createVault(vaultPage, MASTER);
+  await vaultPage
+    .getByRole('button', { name: /recovery kit/i })
+    .first()
+    .click();
+  await expect(vaultPage.locator('#recovery-sheet')).toBeVisible();
+
+  const opened = context.waitForEvent('page');
+  await vaultPage.getByRole('button', { name: /^print$/i }).click();
+  const sheetTab = await opened;
+
+  const printed = await sheetTab.content();
+  expect(printed).toContain('KeyVault Recovery Kit');
+  expect(printed).toMatch(/[0-9A-F]{4}-[0-9A-F]{4}/);
+  // Black on white, regardless of the theme the app was in.
+  expect(printed).toContain('color: #000');
+});
+
+test('a typed password reaches the printed sheet, and warns on it', async ({
+  context,
+  vaultPage,
+}) => {
+  await createVault(vaultPage, MASTER);
+  await vaultPage
+    .getByRole('button', { name: /recovery kit/i })
+    .first()
+    .click();
+
+  await vaultPage.getByLabel(/master password to print/i).fill(MASTER);
+  await vaultPage.getByLabel(/where the backup file is/i).fill('Documents/backup.json');
+
+  const opened = context.waitForEvent('page');
+  await vaultPage.getByRole('button', { name: /^print$/i }).click();
+  const printed = await (await opened).content();
+
+  expect(printed).toContain(MASTER);
+  expect(printed).toContain('Documents/backup.json');
+  // Whoever finds the sheet later must be told what they are holding.
+  expect(printed).toMatch(/contains your master password/i);
+});
+
+test('leaving the password blank keeps it off the sheet entirely', async ({
+  context,
+  vaultPage,
+}) => {
+  await createVault(vaultPage, MASTER);
+  await vaultPage
+    .getByRole('button', { name: /recovery kit/i })
+    .first()
+    .click();
+
+  const opened = context.waitForEvent('page');
+  await vaultPage.getByRole('button', { name: /^print$/i }).click();
+  const printed = await (await opened).content();
+
+  expect(printed).not.toContain(MASTER);
+  expect(printed).not.toMatch(/contains your master password/i);
+  expect(printed).toContain('class="rule"');
 });
 
 test('it states the consequence of losing the password plainly', async ({ vaultPage }) => {
