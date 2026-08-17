@@ -155,18 +155,37 @@ Full detail and vulnerability reporting: [`SECURITY.md`](SECURITY.md).
 The work is split into four stages, each of which produces something verifiable
 on its own.
 
-| Stage                   | Contents                                                      | Status                                            |
-| ----------------------- | ------------------------------------------------------------- | ------------------------------------------------- |
-| **1 — Core**            | Crypto, TOTP, vault data model, CI                            | ✅ **Complete** — 179 tests, 100% branch coverage |
-| **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging            | ⛔ Blocked — see [`ROADMAP.md`](ROADMAP.md)       |
-| **3 — UI**              | Design tokens, popup, onboarding, vault page, generator       | ⬜ Not started                                    |
-| **4 — Web integration** | Autofill, save prompt, auto-login, QR scanning, import/export | ⬜ Not started                                    |
+| Stage                   | Contents                                                      | Status                                                                           |
+| ----------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **1 — Core**            | Crypto, TOTP, vault data model, CI                            | ✅ **Complete**                                                                  |
+| **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging            | ✅ **Complete** — loadable in Chrome                                             |
+| **3 — UI**              | Design system, popup, onboarding, strength, breach check      | 🟡 **In progress** — popup works; full vault page, generator and settings remain |
+| **4 — Web integration** | Autofill, save prompt, auto-login, QR scanning, import/export | ⬜ Not started                                                                   |
 
-**What this means today:** `npm test` passes and the security library is real and
-audited by its own test suite, but there is no `manifest.json` yet, so there is
-nothing to load into Chrome. Stage 2 is blocked on one unresolved platform
-question — details and the exact probe to run are in
-[`ROADMAP.md`](ROADMAP.md).
+**What this means today:** the extension loads and runs. You can create a vault,
+lock and unlock it, and browse credentials with live 2FA codes from the toolbar
+popup. What is missing is everything that touches web pages — autofill, the save
+prompt, auto-login and QR scanning — plus the full-page vault manager, the
+generator UI, and import/export.
+
+```sh
+npm install && npm run build
+# then: chrome://extensions → Developer mode → Load unpacked → dist/
+```
+
+### Browser support
+
+One build runs on every Chromium browser — Chrome, Edge, Brave, Opera, Vivaldi
+and Arc — with no per-browser branching. Chromium **116 or newer** is required.
+
+That floor is a security requirement, not a convenience one. KeyVault keeps the
+unlocked vault key in extension session storage, and
+`storage.session.setAccessLevel` is what stops a content script — and therefore
+any web page — from reading it. Where that API is missing, KeyVault **refuses to
+unlock** rather than running with the key exposed.
+
+Firefox is not supported: its MV3 background model differs. The extension API is
+resolved through a single module, so a port would be contained.
 
 ### What is built
 

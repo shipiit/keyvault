@@ -3,69 +3,35 @@
 What is left to build, in the order it should be built, and the decisions that
 are still open.
 
-Stage 1 (the cryptographic core) is complete. Stages 2–4 are not started, and
-Stage 2 is blocked on one platform question that must be answered empirically
-before any of it is designed.
+Stages 1 and 2 are complete; stage 3 is in progress. The extension loads and
+runs in a Chromium browser today.
 
 ---
 
-## Blocking question — answer this before Stage 2
+## Resolved: how the unlocked key survives a worker restart
 
-**Can `chrome.storage.session` hold a non-extractable `CryptoKey`?**
+A Manifest V3 service worker is terminated after roughly 30 seconds idle, taking
+any in-memory key with it. `chrome.storage.session` survives that — but it
+serialises values as **JSON**, and a `CryptoKey` is not JSON-serialisable, so
+storing one there yields an empty object with no error raised.
 
-This decides the architecture of the whole runtime layer, so it is not something
-to guess at.
+Rather than gamble on the platform, the key is parked as **raw bytes** and
+re-imported on each wake. That is correct whichever way `chrome.storage`
+behaves, so no probe was needed to unblock the work. A test pins the
+serialisation behaviour, so if the platform ever changes, the design can be
+simplified deliberately rather than by accident.
 
-The problem: a Manifest V3 service worker is terminated after roughly 30 seconds
-idle. Anything held in a module-level variable — including the key derived from
-the master password — dies with it. Without somewhere to keep that key, the user
-is asked for their master password every few minutes, which is unusable.
-
-The intended answer is `chrome.storage.session`: memory-only, never written to
-disk, cleared when the browser closes, and lockable to trusted contexts so
-content scripts cannot read it.
-
-The complication: `chrome.storage.*` serialises values as **JSON**, not via
-structured clone. A `CryptoKey` is not JSON-serialisable and may round-trip as an
-empty object — silently, with no error. That collides directly with `kdf.js`,
-which currently returns a non-extractable key and has a test asserting
-`extractable === false`.
-
-### The probe
-
-Load an unpacked scratch MV3 extension and run this in the service worker
-console:
-
-```js
-const k = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, [
-  'encrypt',
-  'decrypt',
-]);
-await chrome.storage.session.set({ k });
-const { k: back } = await chrome.storage.session.get('k');
-console.log(back instanceof CryptoKey, back); // CryptoKey, or {} ?
-```
-
-Test the IndexedDB path in the same scratch extension. IDB _does_ use structured
-clone, and `CryptoKey` is a structured-cloneable object, so a non-extractable key
-may survive worker termination there. But IDB is disk-backed, which trades
-against the "never written to disk" guarantee the README makes — so choosing it
-is a deliberate decision that requires restating the threat model, not a silent
-fallback.
-
-### The three outcomes
-
-| Outcome                                  | Consequence                                                                                                                                                                |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Session storage holds a real `CryptoKey` | No change. Current design stands.                                                                                                                                          |
-| It does not                              | Either store exported raw key bytes — making `extractable: true` the production path and `exportRawKey` no longer test-only — or accept re-unlock on every worker restart. |
-| IndexedDB is chosen instead              | The key now touches disk. `README.md` and `SECURITY.md` must be corrected to say so honestly.                                                                              |
+The trade-off is stated plainly: raw key bytes sit briefly as JSON in a
+memory-only store rather than as an opaque handle.
+`storage.session.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })` is what
+keeps content scripts out, and where that API is unavailable KeyVault refuses to
+unlock rather than running with the key exposed.
 
 ---
 
-## Stage 2 — Runtime
+## Stage 2 — Runtime ✅ complete
 
-Turns the core library into a working locked/unlocked vault. No UI yet.
+Turns the core library into a working locked/unlocked vault.
 
 - `manifest.json` — MV3, minimum permissions, `script-src 'self'`
 - Service worker: key custody, lock state, message router
@@ -84,7 +50,23 @@ forced service-worker restart.
 
 ---
 
-## Stage 3 — UI
+## Stage 3 — UI 🟡 in progress
+
+**Done:** Tailwind v4 token layer (light/dark from one set, following the system
+theme), popup shell, onboarding with the unrecoverable-vault acknowledgement,
+unlock screen, searchable credential list with live TOTP and countdown ring,
+offline password strength, opt-in breach checking.
+
+**Remaining:**
+
+- Full-page vault manager: list/detail, folders, tags, bulk actions
+- Password generator UI
+- Settings: auto-lock interval, per-site rules, generator defaults, breach-check
+  opt-in toggle
+- Entry create/edit form
+- Component tests with Preact Testing Library
+
+Original scope, for reference:
 
 - `tokens.css` — colour, spacing, radius, shadow and motion scales. Light and
   dark derived from one token set. No hardcoded hex or raw pixel values.
