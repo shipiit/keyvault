@@ -77,11 +77,42 @@ export async function deriveKey(password, params, options = {}) {
 }
 
 /**
- * Test-only: read the raw bytes of an extractable key.
+ * Read the raw bytes of an extractable key.
+ *
+ * Used by tests to check derivation against published vectors, and by the
+ * background layer to park the unlocked key in `chrome.storage.session`
+ * across service-worker restarts — see `importRawKey` for why that is
+ * necessary.
  *
  * @param {CryptoKey} key
  * @returns {Promise<Uint8Array>}
  */
 export async function exportRawKey(key) {
   return new Uint8Array(await crypto.subtle.exportKey('raw', key));
+}
+
+/**
+ * Rebuild an AES-GCM key from raw bytes.
+ *
+ * A Manifest V3 service worker is terminated after roughly 30 seconds idle,
+ * taking any in-memory key with it. `chrome.storage.session` survives that,
+ * but it serialises values as JSON — and a `CryptoKey` is not
+ * JSON-serialisable, so storing one there yields an empty object with no
+ * error raised. Raw bytes round-trip safely, so the unlocked key is parked
+ * as bytes and re-imported here on each wake.
+ *
+ * The re-imported key is non-extractable: once it is back in WebCrypto, no
+ * caller has any reason to read it out again.
+ *
+ * @param {Uint8Array} raw
+ * @returns {Promise<CryptoKey>}
+ */
+export async function importRawKey(raw) {
+  if (!(raw instanceof Uint8Array) || raw.length !== KEY_BITS / 8) {
+    throw new RangeError(`raw key must be ${KEY_BITS / 8} bytes`);
+  }
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM', length: KEY_BITS }, false, [
+    'encrypt',
+    'decrypt',
+  ]);
 }
