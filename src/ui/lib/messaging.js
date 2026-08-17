@@ -66,9 +66,20 @@ export const getTotp = (id) => send('entries/totp', { id });
  * @returns {Promise<string|null>}
  */
 export async function getActiveTabUrl() {
-  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-  const url = tab?.url ?? '';
-  return url.startsWith('http://') || url.startsWith('https://') ? url : null;
+  // Opening the popup from the toolbar is the user gesture that grants
+  // activeTab for the current tab, which is what makes `url` readable here.
+  // The broad "tabs" permission would also work but carries an install-time
+  // warning about reading browsing history, for no additional capability.
+  //
+  // If the URL is unavailable for any reason, the caller simply loses the
+  // "For this site" grouping — the vault list still works in full.
+  try {
+    const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+    const url = tab?.url ?? '';
+    return url.startsWith('http://') || url.startsWith('https://') ? url : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

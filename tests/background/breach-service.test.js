@@ -41,6 +41,15 @@ describe('findSuffix', () => {
     );
   });
 
+  it('treats a non-numeric count as a single occurrence rather than NaN', () => {
+    // A hit with an unreadable count is still a hit. Reporting NaN, or
+    // discarding the match, would understate a real exposure.
+    expect(findSuffix(`${PASSWORD_SUFFIX}:not-a-number`, PASSWORD_SUFFIX)).toEqual({
+      breached: true,
+      occurrences: 1,
+    });
+  });
+
   it('ignores malformed lines rather than throwing', () => {
     expect(findSuffix('garbage\n\nmore garbage', PASSWORD_SUFFIX).breached).toBe(false);
     expect(findSuffix(null, PASSWORD_SUFFIX).breached).toBe(false);
@@ -158,8 +167,12 @@ describe('createBreachService', () => {
 describe('describeExposure', () => {
   it('scales severity with occurrence count', () => {
     expect(describeExposure(0).severity).toBe('none');
+    expect(describeExposure(1).severity).toBe('low');
     expect(describeExposure(3).severity).toBe('low');
-    expect(describeExposure(500).severity).toBe('high');
+    expect(describeExposure(9).severity).toBe('low');
+    expect(describeExposure(10).severity).toBe('high');
+    expect(describeExposure(9999).severity).toBe('high');
+    expect(describeExposure(10000).severity).toBe('critical');
     expect(describeExposure(9659365).severity).toBe('critical');
   });
 

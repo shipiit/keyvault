@@ -70,10 +70,22 @@ describe('assessPassword', () => {
   });
 });
 
+describe('estimateEntropyBits', () => {
+  it('returns zero for an empty password', () => {
+    expect(estimateEntropyBits('')).toBe(0);
+  });
+});
+
 describe('timeToCrack', () => {
   it('reports trivial passwords as instant', () => {
     expect(timeToCrack(0)).toBe('instantly');
     expect(timeToCrack(20)).toBe('instantly');
+  });
+
+  it('reports sub-minute figures in seconds', () => {
+    // Around 38 bits: crackable in seconds, and the user should be told so
+    // in units they can feel rather than a rounded-to-zero minute.
+    expect(timeToCrack(38)).toMatch(/^about \d+ seconds$/);
   });
 
   it('scales with entropy', () => {

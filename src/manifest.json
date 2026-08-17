@@ -12,7 +12,7 @@
     "default_title": "KeyVault",
     "default_popup": "ui/popup.html"
   },
-  "permissions": ["storage", "alarms", "activeTab", "tabs"],
+  "permissions": ["storage", "alarms", "activeTab"],
   "host_permissions": [],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"

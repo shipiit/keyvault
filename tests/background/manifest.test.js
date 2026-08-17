@@ -40,9 +40,15 @@ describe('manifest.json', () => {
   });
 
   it('requests only the permissions it uses', () => {
-    expect(new Set(manifest.permissions)).toEqual(
-      new Set(['storage', 'alarms', 'activeTab', 'tabs']),
-    );
+    expect(new Set(manifest.permissions)).toEqual(new Set(['storage', 'alarms', 'activeTab']));
+  });
+
+  it('does not request the broad tabs permission', () => {
+    // "tabs" produces an install-time warning about reading browsing history.
+    // The popup only needs the URL of the tab it was opened over, and opening
+    // it from the toolbar is itself the user gesture that activates
+    // activeTab for that tab — so the broad permission buys nothing.
+    expect(manifest.permissions).not.toContain('tabs');
   });
 
   it('forbids remote and inline script via CSP', () => {

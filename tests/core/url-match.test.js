@@ -33,6 +33,10 @@ describe('toHostname', () => {
     expect(toHostname('chrome://settings')).toBeNull();
   });
 
+  it('rejects a URL whose host is empty after parsing', () => {
+    expect(toHostname('https://:8080')).toBeNull();
+  });
+
   it('rejects empty and malformed values', () => {
     expect(toHostname('')).toBeNull();
     expect(toHostname('   ')).toBeNull();
@@ -86,6 +90,10 @@ describe('entryMatchesUrl', () => {
 
   it('does not match an unrelated site', () => {
     expect(entryMatchesUrl(entry, 'https://evil.com')).toBe(false);
+  });
+
+  it('does not match when urls is not an array', () => {
+    expect(entryMatchesUrl({ urls: 'github.com' }, 'https://github.com')).toBe(false);
   });
 
   it('does not match when the entry has no URLs', () => {

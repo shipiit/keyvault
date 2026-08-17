@@ -73,21 +73,11 @@ export async function unlockVault(doc, password) {
 
   // Stage 2 — the password was right, so any failure here means the payload
   // itself is damaged. Reporting that distinctly is the whole point.
-  let json;
-  try {
-    json = await decryptString(key, fromBase64(doc.data));
-  } catch (cause) {
-    throw new ParseError('vault data is corrupt and could not be decrypted', { cause });
-  }
-
-  let data;
-  try {
-    data = JSON.parse(json);
-  } catch (cause) {
-    throw new ParseError('vault data decrypted but is not valid JSON', { cause });
-  }
-
-  return { data, key };
+  //
+  // Shared with the background layer's read path rather than duplicated: two
+  // copies of this decrypt-and-parse would be free to drift, and a drifted
+  // vault format is a vault nobody can open.
+  return { data: await openVaultData(key, doc.data), key };
 }
 
 /**
