@@ -50,6 +50,55 @@ forced service-worker restart.
 
 ---
 
+## Unlock with Touch ID / Windows Hello
+
+Requested, and it is possible — but it changes where the vault key can come
+from, so it needs designing rather than bolting on.
+
+**The problem.** The vault key is derived from the master password. Biometrics
+do not produce a key; a fingerprint check is a yes/no answer. Treating that
+answer as authorisation to unlock would mean the key had to be sitting
+somewhere already readable, which removes the guarantee the whole design rests
+on: that a stolen vault file is worthless without the master password.
+
+**The mechanism that actually works** is the WebAuthn `prf` extension. A
+platform authenticator (the Secure Enclave on a Mac, the TPM on Windows) can
+derive a stable secret from a credential plus a salt, released only after a
+successful biometric or device-password check. That secret is real key
+material, not a boolean.
+
+The flow:
+
+1. The user unlocks once with the master password, as today.
+2. They opt in to device unlock. KeyVault registers a WebAuthn credential with
+   `prf` enabled, derives a wrapping key from the PRF output, and stores the
+   vault key encrypted under it.
+3. On later unlocks, the authenticator releases the PRF output after Touch ID
+   or the device password, which unwraps the vault key.
+
+**What this does and does not change:**
+
+- The master password still exists and still works. Device unlock is a second
+  door, never a replacement — losing the device must not lose the vault.
+- The wrapped key is bound to this device's authenticator. It cannot be moved,
+  and it is useless in a copied vault file.
+- Anyone who can pass the device's own biometric or password check can open the
+  vault. That is the trade the user is making, and the opt-in must say so
+  plainly.
+
+**Open questions to settle first:**
+
+- `prf` support varies by platform and browser version. Probe
+  `PublicKeyCredential.getClientCapabilities()` and fall back to
+  master-password-only rather than silently degrading.
+- Whether to require the master password periodically anyway, so it is not
+  forgotten — a password never typed is a password lost.
+
+Until this lands, the master password is the only way in, which is why
+onboarding pushes so hard on choosing one that will be remembered.
+
+---
+
 ## Stage 3 — UI 🟡 in progress
 
 **Done:** Tailwind v4 token layer (light/dark from one set, following the system
