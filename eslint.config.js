@@ -87,6 +87,8 @@ export default [
         Element: 'readonly',
         Node: 'readonly',
         Event: 'readonly',
+        KeyboardEvent: 'readonly',
+        DOMParser: 'readonly',
         CSS: 'readonly',
       },
     },
