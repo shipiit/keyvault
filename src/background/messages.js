@@ -240,6 +240,65 @@ export function createMessageRouter({ chrome, vault, autoLock, now = () => Date.
         };
       },
     },
+
+    'credentials/save': {
+      contentScript: true,
+      /**
+       * Save or update a credential the user just submitted on a page.
+       *
+       * The URL is taken from the message, but it is re-derived through
+       * `toHostname` before being stored, so a page cannot record itself
+       * under some other site's name and have that entry offered there
+       * later. A save is as security-relevant as a fill: getting an entry
+       * into the vault under the wrong origin is a fill vulnerability with
+       * a delay on it.
+       *
+       * Created entries never set autoSubmit. Opting a brand-new credential
+       * into auto-login without the user ever seeing the choice would be
+       * exactly the phishing exposure the default guards against.
+       */
+      handle: async ({ url, title, username, password }) => {
+        const host = toHostname(url);
+        if (host === null) {
+          throw new NotAuthorizedError('refusing to save a credential for a non-web origin');
+        }
+        if (typeof password !== 'string' || password === '') {
+          throw new Error('refusing to save an empty password');
+        }
+
+        const data = await vault.getData();
+        const existing = data.entries.find(
+          (entry) => entryMatchesUrl(entry, url) && (entry.username ?? '') === (username ?? ''),
+        );
+
+        if (existing !== undefined) {
+          if (existing.password === password) {
+            return { saved: false, unchanged: true };
+          }
+          await vault.mutate((current) =>
+            replaceEntry(
+              current,
+              updateEntry(findEntry(current, existing.id), { password }, now()),
+            ),
+          );
+          await autoLock.touch();
+          return { saved: true, updated: true, id: existing.id };
+        }
+
+        const entry = createEntry(
+          {
+            title: typeof title === 'string' && title.trim() !== '' ? title.trim() : host,
+            username: username ?? '',
+            password,
+            urls: [`https://${host}`],
+          },
+          now(),
+        );
+        await vault.mutate((current) => addEntry(current, entry));
+        await autoLock.touch();
+        return { saved: true, updated: false, id: entry.id };
+      },
+    },
   };
 
   return {

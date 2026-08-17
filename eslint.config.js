@@ -58,6 +58,28 @@ export default [
         document: 'readonly',
         window: 'readonly',
         globalThis: 'readonly',
+        Element: 'readonly',
+        Node: 'readonly',
+        Event: 'readonly',
+        HTMLInputElement: 'readonly',
+        MutationObserver: 'readonly',
+        CSS: 'readonly',
+        Promise: 'readonly',
+      },
+    },
+  },
+  {
+    // Content-script tests run under jsdom.
+    files: ['tests/content/**/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        HTMLInputElement: 'readonly',
+        Element: 'readonly',
+        Node: 'readonly',
+        Event: 'readonly',
+        CSS: 'readonly',
       },
     },
   },

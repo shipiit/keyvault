@@ -196,6 +196,96 @@ describe('message router', () => {
     });
   });
 
+  describe('credentials/save', () => {
+    const save = (payload, sender = PAGE) =>
+      router.handle({ type: 'credentials/save', payload }, sender);
+
+    it('saves a new credential submitted on a page', async () => {
+      const res = await save({
+        url: 'https://github.com/login',
+        title: 'GitHub',
+        username: 'rahul@example.com',
+        password: 'S3cr3t!',
+      });
+
+      expect(res.ok).toBe(true);
+      expect(res.data.saved).toBe(true);
+      expect(res.data.updated).toBe(false);
+
+      const list = await send('entries/list');
+      expect(list.data.entries[0].title).toBe('GitHub');
+    });
+
+    it('stores the entry under the requesting origin, not an attacker-supplied name', async () => {
+      // A save under the wrong origin is a fill vulnerability with a delay on
+      // it: the entry would later be offered on a site it does not belong to.
+      await save({
+        url: 'https://github.com/login',
+        title: 'Totally Not Evil',
+        username: 'u',
+        password: 'p',
+      });
+      const list = await send('entries/list');
+      expect(list.data.entries[0].urls).toEqual(['https://github.com']);
+    });
+
+    it('refuses to save for a non-web origin', async () => {
+      const res = await save({ url: 'javascript:alert(1)', username: 'u', password: 'p' });
+      expect(res.ok).toBe(false);
+      expect(res.error.name).toBe('NotAuthorizedError');
+    });
+
+    it('refuses to save an empty password', async () => {
+      const res = await save({ url: 'https://github.com', username: 'u', password: '' });
+      expect(res.ok).toBe(false);
+    });
+
+    it('never enables auto-submit on a newly saved credential', async () => {
+      // Opting a brand-new credential into auto-login without the user ever
+      // seeing the choice is exactly what the default guards against.
+      await save({ url: 'https://github.com', username: 'u', password: 'p' });
+      const list = await send('entries/list');
+      expect(list.data.entries[0].autoSubmit).toBe(false);
+    });
+
+    it('updates an existing entry when the password changed', async () => {
+      await save({ url: 'https://github.com', username: 'u', password: 'old' });
+      const res = await save({ url: 'https://github.com', username: 'u', password: 'new' });
+
+      expect(res.data.updated).toBe(true);
+      expect((await send('entries/list')).data.entries).toHaveLength(1);
+    });
+
+    it('reports no change when the password is identical', async () => {
+      await save({ url: 'https://github.com', username: 'u', password: 'same' });
+      const res = await save({ url: 'https://github.com', username: 'u', password: 'same' });
+
+      expect(res.data.saved).toBe(false);
+      expect(res.data.unchanged).toBe(true);
+    });
+
+    it('keeps the old password in history when updating', async () => {
+      await save({ url: 'https://github.com', username: 'u', password: 'old' });
+      const { data } = await save({ url: 'https://github.com', username: 'u', password: 'new' });
+      const entry = (await send('entries/get', { id: data.id })).data.entry;
+
+      expect(entry.password).toBe('new');
+      expect(entry.passwordHistory[0].password).toBe('old');
+    });
+
+    it('falls back to the hostname when the page supplies no title', async () => {
+      await save({ url: 'https://github.com/login', username: 'u', password: 'p' });
+      expect((await send('entries/list')).data.entries[0].title).toBe('github.com');
+    });
+
+    it('refuses to save while the vault is locked', async () => {
+      await send('vault/lock');
+      const res = await save({ url: 'https://github.com', username: 'u', password: 'p' });
+      expect(res.ok).toBe(false);
+      expect(res.error.name).toBe('VaultLockedError');
+    });
+  });
+
   describe('locked vault', () => {
     beforeEach(async () => {
       await send('vault/lock');

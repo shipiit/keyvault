@@ -59,9 +59,22 @@ describe('manifest.json', () => {
     expect(csp).not.toContain('https://');
   });
 
-  it('declares no content scripts yet', () => {
-    // Content scripts arrive in stage 4, with their own security tests.
-    expect(manifest.content_scripts).toBeUndefined();
+  it('declares the autofill content script on web pages only', () => {
+    const [script] = manifest.content_scripts;
+    expect(script.matches).toEqual(['http://*/*', 'https://*/*']);
+    expect(existsSync(resolve(srcDir, script.js[0]))).toBe(true);
+  });
+
+  it('does not inject into about:blank', () => {
+    // about:blank inherits its opener's origin, so a page can create one and
+    // use it to solicit a fill under an origin it should not have.
+    expect(manifest.content_scripts[0].match_about_blank).toBe(false);
+  });
+
+  it('runs the content script at document_idle', () => {
+    // document_start would race the page's own scripts for the DOM it needs
+    // to inspect, and buys nothing: nobody logs in before the page renders.
+    expect(manifest.content_scripts[0].run_at).toBe('document_idle');
   });
 
   it('matches the package version', () => {

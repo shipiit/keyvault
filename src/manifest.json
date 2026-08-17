@@ -19,5 +19,14 @@
   },
   "icons": {},
   "options_page": "ui/vault.html",
-  "optional_host_permissions": ["https://api.pwnedpasswords.com/*"]
+  "optional_host_permissions": ["https://api.pwnedpasswords.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/index.js"],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": false
+    }
+  ]
 }
