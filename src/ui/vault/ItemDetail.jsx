@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { ItemAvatar, Pill, IconButton, CopyButton, FieldRow, Icon } from './primitives.jsx';
 import { Button } from '../components/Button.jsx';
 import { TotpPanel } from './TotpPanel.jsx';
+import { TotpSetupCard } from './TotpSetupCard.jsx';
 import { SecurityTab } from './SecurityTab.jsx';
 import { getEntry, copyWithAutoClear } from '../lib/messaging.js';
 import { relativeTime } from './ItemList.jsx';
@@ -19,11 +20,13 @@ const TABS = [
  * and dropped when the selection changes. It is never held for the whole
  * session, and the password is masked until explicitly revealed.
  */
-export function ItemDetail({ entryId, onEdit, onClose, compact = false }) {
+export function ItemDetail({ entryId, onEdit, onClose, onChanged, compact = false }) {
   const [entry, setEntry] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('details');
   const [revealed, setRevealed] = useState(false);
+
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -41,7 +44,7 @@ export function ItemDetail({ entryId, onEdit, onClose, compact = false }) {
     return () => {
       active = false;
     };
-  }, [entryId]);
+  }, [entryId, reloadToken]);
 
   if (error !== null) {
     return (
@@ -126,7 +129,15 @@ export function ItemDetail({ entryId, onEdit, onClose, compact = false }) {
 
       <div className={`flex-1 overflow-y-auto ${compact ? 'px-4 py-3' : 'px-8 py-5'}`}>
         {tab === 'details' && (
-          <DetailsTab entry={entry} revealed={revealed} onToggleReveal={setRevealed} />
+          <DetailsTab
+            entry={entry}
+            revealed={revealed}
+            onToggleReveal={setRevealed}
+            onChanged={() => {
+              setReloadToken((current) => current + 1);
+              onChanged?.();
+            }}
+          />
         )}
         {tab === 'security' && <SecurityTab entry={entry} />}
         {tab === 'history' && <HistoryTab entry={entry} />}
@@ -146,7 +157,7 @@ function Pane({ children }) {
   );
 }
 
-function DetailsTab({ entry, revealed, onToggleReveal }) {
+function DetailsTab({ entry, revealed, onToggleReveal, onChanged }) {
   return (
     <div className="flex flex-col gap-3">
       <FieldRow
@@ -184,8 +195,10 @@ function DetailsTab({ entry, revealed, onToggleReveal }) {
         )}
       </FieldRow>
 
-      {entry.totp !== null && entry.totp !== undefined && (
+      {entry.totp !== null && entry.totp !== undefined ? (
         <TotpPanel entryId={entry.id} period={entry.totp.period} />
+      ) : (
+        <TotpSetupCard entryId={entry.id} onAdded={onChanged} />
       )}
 
       {entry.urls?.length > 0 && (

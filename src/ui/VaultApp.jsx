@@ -244,6 +244,7 @@ export function VaultApp({ compact = false }) {
             compact={compact}
             entryId={selectedId}
             onEdit={(entry) => setDrawer({ entry })}
+            onChanged={refreshEntries}
             onClose={() => setSelectedId(null)}
           />
         )}
