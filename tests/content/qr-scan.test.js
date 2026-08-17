@@ -10,7 +10,7 @@ import {
   scanPageForTotp,
 } from '../../src/content/qr-scan.js';
 
-const REAL_URI =
+const SAMPLE_URI =
   'otpauth://totp/Example%3Ayou%40example.com?secret=K5XQ7ZTM2WFB4HRJ6NPD3SVA5YCE7GLU&algorithm=SHA1&digits=6&period=30&issuer=Example';
 
 /**
@@ -36,8 +36,8 @@ describe('findOtpauthInText', () => {
   it('finds the URI a setup page prints under the QR image', () => {
     // The common case, and the reason text is tried before pixels: 2FA pages
     // print the URI so it can be typed into a device with no camera.
-    document.body.innerHTML = `<div><img alt="QR"><p>${REAL_URI}</p></div>`;
-    expect(findOtpauthInText(document).uri).toBe(REAL_URI);
+    document.body.innerHTML = `<div><img alt="QR"><p>${SAMPLE_URI}</p></div>`;
+    expect(findOtpauthInText(document).uri).toBe(SAMPLE_URI);
     expect(findOtpauthInText(document).source).toBe('text');
   });
 
@@ -47,13 +47,13 @@ describe('findOtpauthInText', () => {
   });
 
   it('finds a URI held in a copy-button attribute', () => {
-    document.body.innerHTML = `<button data-clipboard-text="${REAL_URI}">Copy</button>`;
-    expect(findOtpauthInText(document).uri).toBe(REAL_URI);
+    document.body.innerHTML = `<button data-clipboard-text="${SAMPLE_URI}">Copy</button>`;
+    expect(findOtpauthInText(document).uri).toBe(SAMPLE_URI);
   });
 
   it('finds a URI in a link href', () => {
-    document.body.innerHTML = `<a href="${REAL_URI}">Add to authenticator</a>`;
-    expect(findOtpauthInText(document).uri).toBe(REAL_URI);
+    document.body.innerHTML = `<a href="${SAMPLE_URI}">Add to authenticator</a>`;
+    expect(findOtpauthInText(document).uri).toBe(SAMPLE_URI);
   });
 
   it('stops at the first whitespace or quote, not mid-URI', () => {
@@ -191,25 +191,25 @@ describe('scanPageForTotp', () => {
         return [];
       }
     };
-    document.body.innerHTML = `<img width="200" height="200"><p>${REAL_URI}</p>`;
+    document.body.innerHTML = `<img width="200" height="200"><p>${SAMPLE_URI}</p>`;
 
     const result = await scanPageForTotp(document);
 
-    expect(result).toEqual({ found: true, uri: REAL_URI, source: 'text' });
+    expect(result).toEqual({ found: true, uri: SAMPLE_URI, source: 'text' });
     expect(decoded, 'should not decode when the URI is written on the page').toBe(false);
   });
 
   it('falls back to decoding the QR image', async () => {
     globalThis.BarcodeDetector = class {
       async detect() {
-        return [{ rawValue: REAL_URI }];
+        return [{ rawValue: SAMPLE_URI }];
       }
     };
     document.body.innerHTML = '<img width="200" height="200">';
 
     expect(await scanPageForTotp(document)).toEqual({
       found: true,
-      uri: REAL_URI,
+      uri: SAMPLE_URI,
       source: 'image',
     });
   });
