@@ -11,6 +11,9 @@ import { describeIssues } from '../../core/security-score.js';
 
 const VIEWS = [
   { id: 'all', label: 'All Items', icon: Icon.Grid },
+  // A tool rather than a collection, so it carries no count and is always
+  // shown — hiding it when empty would hide it permanently.
+  { id: 'generator', label: 'Generator', icon: Icon.Refresh, tool: true },
   { id: 'favorites', label: 'Favorites', icon: Icon.Star },
   { id: 'recent', label: 'Recent', icon: Icon.Clock },
   { id: 'trash', label: 'Trash', icon: Icon.Trash },
@@ -43,7 +46,8 @@ const CATEGORIES = [
  */
 function visibleRows(items, counts, view) {
   return items.filter(
-    (item) => item.id === 'all' || item.id === view || (counts[item.id] ?? 0) > 0,
+    (item) =>
+      item.id === 'all' || item.tool === true || item.id === view || (counts[item.id] ?? 0) > 0,
   );
 }
 
@@ -161,7 +165,11 @@ function NavItem({ item, count, active, collapsed, onSelect }) {
         {!collapsed && (
           <>
             <span className="flex-1 truncate text-left">{item.label}</span>
-            <span className="tabular shrink-0 text-xs text-[var(--color-fg-subtle)]">{count}</span>
+            {item.tool !== true && (
+              <span className="tabular shrink-0 text-xs text-[var(--color-fg-subtle)]">
+                {count}
+              </span>
+            )}
           </>
         )}
       </button>

@@ -12,6 +12,8 @@ import { detectLoginForms, detectOtpFields } from './field-detector.js';
 import { fillCredential, submitForm, fillOtpCode, submitOtp } from './filler.js';
 import { showSavePrompt, dismissSavePrompt } from './save-prompt.js';
 import { scanPageForTotp, findOtpauthInText, decodeQrOnPage } from './qr-scan.js';
+import { attachInlineMenu, removeInlineMenu } from './inline-menu.js';
+import { generatePassword } from '../core/generator.js';
 
 const api = globalThis.chrome ?? globalThis.browser;
 
@@ -215,6 +217,61 @@ function stashBeforeUnload() {
   pendingSubmission = null;
 }
 
+/** The field the badge is currently attached to. */
+let badgedField = null;
+
+/**
+ * Put the KeyVault badge in the login field.
+ *
+ * Attached to the username field where there is one, and the password field
+ * otherwise — the first field a user looks at is where they expect to find
+ * the affordance.
+ */
+function attachBadge() {
+  const [target] = detectLoginForms(document).filter((candidate) => candidate.kind === 'login');
+  const field = target?.username ?? target?.password ?? null;
+
+  if (field === null) {
+    if (badgedField !== null) {
+      removeInlineMenu();
+      badgedField = null;
+    }
+    return;
+  }
+  if (field === badgedField && document.getElementById('keyvault-inline-menu') !== null) {
+    return;
+  }
+
+  badgedField = field;
+  attachInlineMenu({
+    field,
+    kind: target.password === field ? 'password' : 'login',
+    // Metadata only: no password crosses until one is chosen.
+    loadEntries: async () => {
+      try {
+        const { entries } = await send('credentials/forUrl', { url: window.location.href });
+        return entries;
+      } catch {
+        return [];
+      }
+    },
+    onChoose: (id) => {
+      fillWith(id).catch(() => {});
+    },
+    onGenerate: () => {
+      // Generated in the page rather than fetched: it is about to be typed
+      // into this page anyway, so a round-trip would add nothing.
+      const generated = generatePassword();
+      if (target.password !== null) {
+        fillCredential({ username: null, password: target.password }, { password: generated });
+      }
+    },
+    onOpenVault: () => {
+      api.runtime.sendMessage({ type: 'ui/openVault' }).catch(() => {});
+    },
+  });
+}
+
 /** Forms already filled, so a re-render does not refill over the user. */
 const filledForms = new WeakSet();
 
@@ -340,6 +397,7 @@ function watchForLoginForms() {
       scheduled = false;
       autofillOnLoad();
       autofillOtp();
+      attachBadge();
     }, 300);
   };
 

@@ -5,6 +5,7 @@ import { ItemList } from './vault/ItemList.jsx';
 import { ItemDetail } from './vault/ItemDetail.jsx';
 import { ItemDrawer } from './vault/ItemDrawer.jsx';
 import { Settings } from './vault/Settings.jsx';
+import { GeneratorPage } from './vault/GeneratorPage.jsx';
 import { Unlock } from './screens/Unlock.jsx';
 import { Onboarding } from './screens/Onboarding.jsx';
 import { Icon } from './vault/primitives.jsx';
@@ -231,6 +232,8 @@ export function VaultApp({ compact = false }) {
 
         {view === 'settings' ? (
           <Settings onChanged={refreshEntries} />
+        ) : view === 'generator' ? (
+          <GeneratorPage />
         ) : (
           <>
             <ItemList

@@ -37,6 +37,12 @@ function show(counts, view = 'all') {
 }
 
 describe('Sidebar shows only rows that have something in them', () => {
+  it('always shows the generator, which is a tool rather than a collection', () => {
+    // Hiding it when empty would hide it permanently: it has nothing to
+    // count.
+    expect(show({})).toContain('Generator');
+  });
+
   it('hides every empty category on a fresh vault', () => {
     // A column of zeroes is noise, and makes an empty vault look broken.
     const rows = show({});

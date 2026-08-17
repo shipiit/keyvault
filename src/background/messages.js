@@ -647,6 +647,21 @@ export function createMessageRouter({
       },
     },
 
+    'ui/openVault': {
+      contentScript: true,
+      /**
+       * Open the vault page.
+       *
+       * Content-script reachable because the inline menu offers it, but it
+       * only opens the extension's own page — it exposes nothing and cannot
+       * be pointed anywhere else.
+       */
+      handle: async () => {
+        await chrome.tabs.create({ url: chrome.runtime.getURL('ui/vault.html') });
+        return { opened: true };
+      },
+    },
+
     'credentials/shouldSave': {
       contentScript: true,
       /**
