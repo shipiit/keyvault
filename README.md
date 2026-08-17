@@ -155,23 +155,88 @@ Full detail and vulnerability reporting: [`SECURITY.md`](SECURITY.md).
 The work is split into four stages, each of which produces something verifiable
 on its own.
 
-| Stage                   | Contents                                                      | Status                                                                           |
-| ----------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| **1 — Core**            | Crypto, TOTP, vault data model, CI                            | ✅ **Complete**                                                                  |
-| **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging            | ✅ **Complete** — loadable in Chrome                                             |
-| **3 — UI**              | Design system, popup, onboarding, strength, breach check      | 🟡 **In progress** — popup works; full vault page, generator and settings remain |
-| **4 — Web integration** | Autofill, save prompt, auto-login, QR scanning, import/export | ⬜ Not started                                                                   |
+| Stage                   | Contents                                                 | Status                                                                    |
+| ----------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **1 — Core**            | Crypto, TOTP, vault data model, CI                       | ✅ **Complete**                                                           |
+| **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging       | ✅ **Complete** — loadable in Chrome                                      |
+| **3 — UI**              | Design system, popup, onboarding, strength, breach check | 🟡 **In progress** — popup done; vault page, generator, settings remain   |
+| **4 — Web integration** | Autofill, save prompt, auto-login                        | 🟡 **In progress** — filling and saving work; QR and import/export remain |
 
-**What this means today:** the extension loads and runs. You can create a vault,
-lock and unlock it, and browse credentials with live 2FA codes from the toolbar
-popup. What is missing is everything that touches web pages — autofill, the save
-prompt, auto-login and QR scanning — plus the full-page vault manager, the
-generator UI, and import/export.
+**What this means today:** the extension loads and works on real sites. It fills
+login forms, offers to save credentials when you log in, generates 2FA codes, and
+can auto-submit for entries you opt in. Still to come: the full-page vault
+manager, the password generator UI, settings, QR-code scanning, and
+import/export.
+
+---
+
+## Installing it
+
+KeyVault is not on the Chrome Web Store yet, so it is installed as an unpacked
+extension. The steps are the same on every Chromium browser; only the settings
+URL differs.
+
+### 1. Build it
 
 ```sh
-npm install && npm run build
-# then: chrome://extensions → Developer mode → Load unpacked → dist/
+git clone https://github.com/shipiit/keyvault.git
+cd keyvault
+npm install
+npm run build
 ```
+
+That produces a `dist/` folder. That folder _is_ the extension.
+
+### 2. Load it
+
+| Browser     | Open this              | Then                                                                         |
+| ----------- | ---------------------- | ---------------------------------------------------------------------------- |
+| **Chrome**  | `chrome://extensions`  | Turn on **Developer mode** (top right) → **Load unpacked** → pick `dist/`    |
+| **Edge**    | `edge://extensions`    | Turn on **Developer mode** (left sidebar) → **Load unpacked** → pick `dist/` |
+| **Brave**   | `brave://extensions`   | Turn on **Developer mode** (top right) → **Load unpacked** → pick `dist/`    |
+| **Opera**   | `opera://extensions`   | Turn on **Developer mode** (top right) → **Load unpacked** → pick `dist/`    |
+| **Vivaldi** | `vivaldi://extensions` | Turn on **Developer mode** (top right) → **Load unpacked** → pick `dist/`    |
+| **Arc**     | `arc://extensions`     | Turn on **Developer mode** (top right) → **Load unpacked** → pick `dist/`    |
+
+Pick the `dist` **folder** itself — not a file inside it, and not the project
+root.
+
+### 3. Pin it
+
+Click the puzzle-piece icon in the toolbar and pin KeyVault, so the popup is
+one click away.
+
+### 4. Create your vault
+
+Click the KeyVault icon and choose a master password. It must be at least 12
+characters.
+
+> **Read this before you continue.** Your vault is encrypted with this password
+> and stored only on this device. If you forget it, the vault cannot be
+> recovered — there is no reset link and no support account, because there is no
+> server holding a spare key. Export a backup as soon as you have added
+> anything you care about.
+
+### Updating after a code change
+
+```sh
+npm run build
+```
+
+Then open your browser's extensions page and click the **reload** icon on the
+KeyVault card. A change to the popup or vault page only needs the popup
+reopening; a change to the background or content script needs the reload.
+
+### Troubleshooting
+
+| Symptom                                       | Cause                                                                                                 |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| "Manifest file is missing or unreadable"      | You selected the project root instead of `dist/`.                                                     |
+| The extension loads but the icon does nothing | `npm run build` was not run, or was run before the last code change.                                  |
+| "KeyVault will not unlock on this browser"    | The browser is older than Chromium 116. See [Browser support](#browser-support) — this is deliberate. |
+| Autofill does nothing on a site               | The vault is locked, or no entry is saved for that domain. Open the popup to check.                   |
+
+---
 
 ### Browser support
 
@@ -230,12 +295,19 @@ can still be consistently wrong.
 
 ```sh
 npm install
-npm test               # 179 tests
+npm run dev            # preview the UI in a browser tab, no extension reload
+npm test               # 408 tests
 npm run test:watch
 npm run test:coverage  # thresholds enforced: 95% lines/functions, 90% branches
 npm run lint
 npm run format
 ```
+
+`npm run dev` serves the popup at `http://localhost:5173/popup.html` against an
+in-memory mock of the background worker, so the interface can be worked on
+without repackaging. Append `?state=new`, `?state=locked` or `?state=open` to
+jump to a screen; the mock's unlock password is `demo`. It activates only when
+the extension APIs are absent, so it can never run inside the real extension.
 
 Requires Node 20 or newer. CI runs on Node 20, 22 and 24, and fails on any
 `npm audit` finding at moderate or above.

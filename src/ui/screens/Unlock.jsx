@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { Button } from '../components/Button.jsx';
 import { PasswordField } from '../components/Field.jsx';
 import { unlockVault } from '../lib/messaging.js';
@@ -15,15 +15,27 @@ export function Unlock({ onUnlocked }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const formRef = useRef(null);
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (password === '' || busy) return;
+    if (busy) return;
+
+    // Read the field rather than trusting component state. An external
+    // password manager can write into the input without firing the events
+    // Preact listens for, which would otherwise leave state empty and the
+    // form permanently unsubmittable with a visibly filled box.
+    const typed = formRef.current?.querySelector('input[type="password"], input[type="text"]');
+    const value = typed?.value ?? password;
+    if (value === '') {
+      setError('Enter your master password');
+      return;
+    }
 
     setBusy(true);
     setError(null);
     try {
-      await unlockVault(password);
+      await unlockVault(value);
       onUnlocked();
     } catch (caught) {
       // The background distinguishes a wrong password from a damaged vault.
@@ -42,7 +54,7 @@ export function Unlock({ onUnlocked }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-5">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5 p-5">
       <header className="flex flex-col items-center gap-3 pt-4 text-center">
         <LockMark />
         <div className="flex flex-col gap-1">
@@ -56,13 +68,15 @@ export function Unlock({ onUnlocked }) {
       <PasswordField
         label="Master password"
         value={password}
-        autoComplete="current-password"
+        masterPassword
         autoFocus
         error={error}
         onInput={(e) => setPassword(e.currentTarget.value)}
       />
 
-      <Button type="submit" variant="primary" size="lg" disabled={password === ''} loading={busy}>
+      {/* Never disabled on emptiness: an externally filled field would then
+          be unsubmittable. Empty input is caught on submit instead. */}
+      <Button type="submit" variant="primary" size="lg" loading={busy}>
         {busy ? 'Unlocking…' : 'Unlock'}
       </Button>
     </form>

@@ -57,7 +57,7 @@ export function Onboarding({ onCreated }) {
           <PasswordField
             label="Master password"
             value={password}
-            autoComplete="new-password"
+            masterPassword
             autoFocus
             onInput={(e) => setPassword(e.currentTarget.value)}
           />
@@ -91,7 +91,7 @@ export function Onboarding({ onCreated }) {
         <PasswordField
           label="Confirm master password"
           value={confirm}
-          autoComplete="new-password"
+          masterPassword
           error={mismatch ? 'Passwords do not match' : null}
           onInput={(e) => setConfirm(e.currentTarget.value)}
         />

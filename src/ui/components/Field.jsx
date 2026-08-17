@@ -70,9 +70,35 @@ export function Field({
  *
  * Revealing is opt-in and resets on every mount: a popup that reopens showing
  * a plaintext password is a shoulder-surfing hazard.
+ *
+ * Set `masterPassword` for KeyVault's own master password box. It tells every
+ * password manager — Chrome's built-in one included — to keep away from this
+ * field. Without it Chrome offers to save the master password and then
+ * autofills it on sight, which would put the key to the whole vault inside a
+ * different manager and defeat the point of the product.
  */
-export function PasswordField({ label, error = null, hint = null, ...props }) {
+export function PasswordField({
+  label,
+  error = null,
+  hint = null,
+  masterPassword = false,
+  ...props
+}) {
   const [revealed, setRevealed] = useState(false);
+
+  const managerHints = masterPassword
+    ? {
+        autoComplete: 'off',
+        autocorrect: 'off',
+        spellcheck: 'false',
+        // Vendor opt-outs. Each manager reads its own attribute, so all
+        // three are needed to cover the common ones.
+        'data-1p-ignore': '',
+        'data-lpignore': 'true',
+        'data-bwignore': '',
+        'data-form-type': 'other',
+      }
+    : {};
 
   return (
     <div className="relative">
@@ -82,6 +108,7 @@ export function PasswordField({ label, error = null, hint = null, ...props }) {
         error={error}
         hint={hint}
         className="[&_input]:pr-11"
+        {...managerHints}
         {...props}
       />
       <button
