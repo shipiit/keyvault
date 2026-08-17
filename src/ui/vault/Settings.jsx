@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { BackupSection } from './BackupSection.jsx';
+import { DeviceUnlockSection } from './DeviceUnlock.jsx';
 import { send } from '../lib/messaging.js';
 import { MIN_LENGTH as GENERATOR_MIN, MAX_LENGTH as GENERATOR_MAX } from '../../core/generator.js';
 
@@ -116,6 +117,8 @@ export function Settings({ onChanged }) {
           </select>
         </Row>
       </Section>
+
+      <DeviceUnlockSection />
 
       <Section
         title="Breach checking"

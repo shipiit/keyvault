@@ -2,6 +2,7 @@ import { useRef, useState } from 'preact/hooks';
 import { Button } from '../components/Button.jsx';
 import { PasswordField } from '../components/Field.jsx';
 import { unlockVault } from '../lib/messaging.js';
+import { DeviceUnlockButton } from '../vault/DeviceUnlock.jsx';
 
 /**
  * Unlock screen.
@@ -64,6 +65,10 @@ export function Unlock({ onUnlocked }) {
           </p>
         </div>
       </header>
+
+      {/* Renders nothing unless device unlock is actually set up, so the
+          lock screen never offers something that cannot work. */}
+      <DeviceUnlockButton onUnlocked={onUnlocked} />
 
       <PasswordField
         label="Master password"
