@@ -1,6 +1,6 @@
 {
   "name": "keyvault",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A local-only, zero-knowledge password manager for Chrome.",
   "license": "MIT",
   "type": "module",

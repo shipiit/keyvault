@@ -91,6 +91,26 @@ export function printableRecoveryHtml(kit, filled = {}) {
   .filled { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
             font-size: 15px; font-weight: 700; word-break: break-all; letter-spacing: 0.5px; }
   .warn { border: 1.5px solid #000; border-radius: 8px; padding: 10px 12px; margin-top: 18px; }
+
+  /* Watermark. Fixed rather than absolute so it repeats on every sheet if the
+     content ever runs to a second page, and drawn behind everything at an
+     opacity low enough that it cannot compete with a handwritten password. */
+  .watermark {
+    position: fixed; inset: 0; z-index: -1;
+    display: grid; place-items: center; pointer-events: none;
+  }
+  .watermark span {
+    transform: rotate(-32deg);
+    font-size: 88px; font-weight: 800; letter-spacing: 6px;
+    color: #000; opacity: 0.05; white-space: nowrap;
+  }
+
+  .sheetfoot {
+    margin-top: 18px; padding-top: 8px; border-top: 1px solid #ccc;
+    display: flex; justify-content: space-between; gap: 16px;
+    font-size: 10px; color: #666;
+  }
+  .sheetfoot .brand { font-weight: 700; color: #000; letter-spacing: 0.3px; }
   ol { margin: 6px 0 0; padding-left: 20px; }
   li { margin: 3px 0; }
   code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; }
@@ -100,6 +120,14 @@ export function printableRecoveryHtml(kit, filled = {}) {
 </style>
 </head>
 <body>
+  <!-- Behind the content, and printed regardless of whether the printer is
+       willing to lay down background colours: it is text, not a background. -->
+  <div class="watermark" aria-hidden="true"><span>${
+    typeof filled.masterPassword === 'string' && filled.masterPassword.trim() !== ''
+      ? 'CONFIDENTIAL'
+      : 'RECOVERY KIT'
+  }</span></div>
+
   <header>
     <span class="mark">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -158,6 +186,11 @@ export function printableRecoveryHtml(kit, filled = {}) {
     of it exists, and no part of this project can recover it. That is the trade for having no
     server that could be compelled or breached.</p>
   </footer>
+
+  <div class="sheetfoot">
+    <span><span class="brand">KeyVault</span> &middot; github.com/shipiit/keyvault</span>
+    <span>Vault ${escapeHtml(kit.fingerprint)} &middot; v${escapeHtml(kit.version)} &middot; printed ${escapeHtml(printed)}</span>
+  </div>
 </body>
 </html>`;
 }

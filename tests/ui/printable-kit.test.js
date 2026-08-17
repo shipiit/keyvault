@@ -33,6 +33,24 @@ describe('printableRecoveryHtml', () => {
     expect(printableRecoveryHtml(KIT)).not.toMatch(/<script/i);
   });
 
+  it('carries a footer identifying the vault and the build that made it', () => {
+    const html = printableRecoveryHtml(KIT);
+    expect(html).toContain('github.com/shipiit/keyvault');
+    expect(html).toContain('Vault 27FC-924C');
+    expect(html).toContain('v0.1.0');
+  });
+
+  it('watermarks the sheet, and says CONFIDENTIAL only when it is', () => {
+    // The watermark is text rather than a background image on purpose: many
+    // printers drop background graphics by default and would silently omit it.
+    expect(printableRecoveryHtml(KIT)).toContain('RECOVERY KIT</span>');
+    expect(printableRecoveryHtml(KIT, { masterPassword: 'x' })).toContain('CONFIDENTIAL</span>');
+  });
+
+  it('keeps the watermark faint enough not to fight the content', () => {
+    expect(printableRecoveryHtml(KIT)).toMatch(/opacity: 0\.0[0-9]/);
+  });
+
   describe('when nothing is typed', () => {
     it('leaves ruled lines to write on', () => {
       const html = printableRecoveryHtml(KIT);
