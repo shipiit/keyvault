@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="KeyVault — a password manager with no server to trust">
+  <title>KeyVault</title>
+  <desc>A local-only, zero-knowledge password manager for Chromium browsers.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#161a23"/>
+      <stop offset="55%" stop-color="#1d2130"/>
+      <stop offset="100%" stop-color="#2a2350"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8b83ff"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#4f46e5" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- The banner carries its own dark ground rather than inheriting the
+       page's: GitHub serves README images through a proxy that gives no
+       theme information, so a transparent background would put dark text on
+       a dark page for half the audience. -->
+  <rect width="1280" height="360" rx="16" fill="url(#bg)"/>
+  <ellipse cx="200" cy="180" rx="360" ry="300" fill="url(#glow)"/>
+
+  <g transform="translate(96 84)">
+    <rect width="192" height="192" rx="44" fill="#20243040" stroke="#ffffff1a" stroke-width="1.5"/>
+    <g transform="translate(96 96) scale(6.2) translate(-12 -12)">
+      <path d="M12 3.2 4.6 5.9v5.6c0 4.3 2.9 7.8 7.4 9.3 4.5-1.5 7.4-5 7.4-9.3V5.9z" fill="url(#shield)"/>
+      <path d="M12 9.4a2 2 0 0 0-1 3.7v1.6a1 1 0 0 0 2 0v-1.6a2 2 0 0 0-1-3.7z" fill="#ffffff"/>
+    </g>
+  </g>
+
+  <g font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+    <text x="352" y="150" font-size="76" font-weight="700" fill="#ffffff" letter-spacing="-1.5">KeyVault</text>
+    <text x="352" y="200" font-size="27" font-weight="500" fill="#b9bdd0">A password manager with no server to trust.</text>
+    <text x="352" y="240" font-size="20" font-weight="400" fill="#8b90a6">Local-only · zero-knowledge · AES-GCM-256 · TOTP built in</text>
+
+    <g font-size="17" font-weight="600">
+      <rect x="352" y="266" width="150" height="36" rx="18" fill="#4f46e526" stroke="#4f46e559"/>
+      <text x="427" y="290" fill="#a8a2ff" text-anchor="middle">No account</text>
+
+      <rect x="514" y="266" width="150" height="36" rx="18" fill="#4f46e526" stroke="#4f46e559"/>
+      <text x="589" y="290" fill="#a8a2ff" text-anchor="middle">No telemetry</text>
+
+      <rect x="676" y="266" width="160" height="36" rx="18" fill="#4f46e526" stroke="#4f46e559"/>
+      <text x="756" y="290" fill="#a8a2ff" text-anchor="middle">No backend</text>
+
+      <rect x="848" y="266" width="176" height="36" rx="18" fill="#4f46e526" stroke="#4f46e559"/>
+      <text x="936" y="290" fill="#a8a2ff" text-anchor="middle">Open source</text>
+    </g>
+  </g>
+</svg>

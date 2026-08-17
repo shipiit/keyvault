@@ -1,14 +1,28 @@
+<p align="center">
+  <img src="docs/banner.svg" alt="KeyVault — a password manager with no server to trust" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/shipiit/keyvault/actions/workflows/ci.yml"><img src="https://github.com/shipiit/keyvault/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <img src="https://img.shields.io/badge/tests-697%20passing-success" alt="697 tests passing">
+  <img src="https://img.shields.io/badge/coverage-97%25-success" alt="97% coverage">
+  <img src="https://img.shields.io/badge/dependencies-0%20runtime-success" alt="zero runtime dependencies">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT licence"></a>
+</p>
+
 # KeyVault
 
-A local-only, zero-knowledge password manager for Chrome. Stores credentials and
-TOTP two-factor secrets in an encrypted vault that never leaves your machine.
+A local-only, zero-knowledge password manager for Chromium browsers. Stores
+credentials and TOTP two-factor secrets in an encrypted vault that never leaves
+your machine.
 
-> **Status: under active development. Not yet audited. Do not use for real
-> credentials.**
+> **Status: works, and in daily use. Not yet independently audited.**
 >
-> The cryptographic core is complete and tested. The extension itself — manifest,
-> service worker, UI, autofill — is not built yet. See
-> [Project status](#project-status) for exactly what exists.
+> Every stage is built: encrypted vault, autofill, save prompts, TOTP, the
+> in-field badge, generator, Watchtower, backups and imports. What it has not
+> had is a review by anyone but its author — so if you are moving from a
+> commercial manager, keep an export of your old vault until you trust this
+> one. See [Project status](#project-status) for the detail.
 
 ---
 
@@ -29,7 +43,7 @@ vault.
 
 ---
 
-## Planned features
+## Features
 
 |                        |                                                                                                                |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
