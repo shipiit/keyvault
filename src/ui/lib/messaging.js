@@ -162,7 +162,10 @@ export async function scanOpenTabsForTotp() {
   }
 
   const ownPrefix = `chrome-extension://${api.runtime.id}/`;
-  const tabs = await api.tabs.query({ currentWindow: true });
+  // Every window, not just this one. The vault page opens as its own tab and
+  // is often in a different window from the setup page being scanned, which
+  // made the scan report that it could not read any tab at all.
+  const tabs = await api.tabs.query({});
 
   // Active tab first: from the popup it is the page the user is looking at,
   // and it is the answer they expect.

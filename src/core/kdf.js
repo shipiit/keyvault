@@ -105,14 +105,19 @@ export async function exportRawKey(key) {
  * caller has any reason to read it out again.
  *
  * @param {Uint8Array} raw
+ * @param {{extractable?: boolean}} [options] extractable only where the key
+ *   must be re-exported, as when it is parked in session storage
  * @returns {Promise<CryptoKey>}
  */
-export async function importRawKey(raw) {
+export async function importRawKey(raw, options = {}) {
   if (!(raw instanceof Uint8Array) || raw.length !== KEY_BITS / 8) {
     throw new RangeError(`raw key must be ${KEY_BITS / 8} bytes`);
   }
-  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM', length: KEY_BITS }, false, [
-    'encrypt',
-    'decrypt',
-  ]);
+  return crypto.subtle.importKey(
+    'raw',
+    raw,
+    { name: 'AES-GCM', length: KEY_BITS },
+    options.extractable === true,
+    ['encrypt', 'decrypt'],
+  );
 }

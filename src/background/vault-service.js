@@ -11,6 +11,15 @@ import { fromBase64 } from '../core/encoding.js';
 import { KeyVaultError } from '../core/errors.js';
 import { createVaultStorage } from './storage.js';
 import { createSessionKeyStore } from './session-key.js';
+import { wrapVaultKey, unwrapVaultKey } from '../core/device-key.js';
+
+/**
+ * Where the device-wrapped vault key lives.
+ *
+ * Persistent, unlike the session key: the point is that it survives a
+ * browser restart. It is useless without this device's authenticator.
+ */
+const DEVICE_UNLOCK_KEY = 'keyvault.deviceUnlock';
 
 /** Raised when an operation needs an unlocked vault and the vault is locked. */
 export class VaultLockedError extends KeyVaultError {}
@@ -185,6 +194,69 @@ export function createVaultService({ chrome, kdfOverrides = {}, onDerive = null 
       const newKey = await derive(newPassword, kdf);
       await storage.save(await buildVaultDocument(newKey, kdf, data));
       await sessionKey.store(newKey);
+
+      // The wrapped copy is of the *old* key, so it would no longer open
+      // this vault. Leaving it would mean a device unlock that silently
+      // fails; removing it makes the user re-enable deliberately.
+      await chrome.storage.local.remove(DEVICE_UNLOCK_KEY);
+    },
+
+    /**
+     * Wrap the currently unlocked key for device unlock.
+     *
+     * Requires the vault to be unlocked already: there is nothing to wrap
+     * otherwise, and requiring the master password first is what keeps
+     * device unlock a second door rather than a replacement.
+     *
+     * @param {Uint8Array} prfOutput
+     * @param {string} credentialId
+     */
+    async enableDeviceUnlock(prfOutput, credentialId) {
+      const key = await requireKey();
+      const record = await wrapVaultKey(key, prfOutput, credentialId);
+      await chrome.storage.local.set({ [DEVICE_UNLOCK_KEY]: record });
+      return { enabled: true };
+    },
+
+    async disableDeviceUnlock() {
+      await chrome.storage.local.remove(DEVICE_UNLOCK_KEY);
+      return { enabled: false };
+    },
+
+    /**
+     * @returns {Promise<{enabled: boolean, credentialId: string|null}>}
+     */
+    async getDeviceUnlock() {
+      const stored = await chrome.storage.local.get(DEVICE_UNLOCK_KEY);
+      const record = stored[DEVICE_UNLOCK_KEY];
+      return {
+        enabled: record !== undefined,
+        credentialId: record?.credentialId ?? null,
+      };
+    },
+
+    /**
+     * Unlock using a PRF output from the platform authenticator.
+     *
+     * @param {Uint8Array} prfOutput
+     */
+    async unlockWithDevice(prfOutput) {
+      const stored = await chrome.storage.local.get(DEVICE_UNLOCK_KEY);
+      const record = stored[DEVICE_UNLOCK_KEY];
+      if (record === undefined) {
+        throw new Error('device unlock is not set up on this device');
+      }
+
+      await sessionKey.initialize();
+      const key = await unwrapVaultKey(record, prfOutput);
+
+      // Prove the key actually opens this vault before reporting success.
+      // A stale wrapped key from a vault that has since been re-keyed would
+      // otherwise leave the UI unlocked against data it cannot read.
+      const doc = await storage.load();
+      await openVaultData(key, doc.data);
+
+      await sessionKey.store(key);
     },
 
     /**

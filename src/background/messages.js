@@ -284,6 +284,44 @@ export function createMessageRouter({
       },
     },
 
+    // ---- Device unlock (trusted contexts only) ----
+
+    'device/status': {
+      contentScript: false,
+      handle: () => vault.getDeviceUnlock(),
+    },
+
+    'device/enable': {
+      contentScript: false,
+      /**
+       * PRF output arrives as an array of numbers: a Uint8Array does not
+       * survive extension message serialisation, which would silently
+       * become an empty object.
+       */
+      handle: async ({ prfOutput, credentialId }) => {
+        const result = await vault.enableDeviceUnlock(
+          Uint8Array.from(prfOutput ?? []),
+          credentialId,
+        );
+        await autoLock.touch();
+        return result;
+      },
+    },
+
+    'device/disable': {
+      contentScript: false,
+      handle: () => vault.disableDeviceUnlock(),
+    },
+
+    'device/unlock': {
+      contentScript: false,
+      handle: async ({ prfOutput }) => {
+        await vault.unlockWithDevice(Uint8Array.from(prfOutput ?? []));
+        await autoLock.touch();
+        return { unlocked: true };
+      },
+    },
+
     // ---- Backup (trusted contexts only) ----
 
     'backup/create': {

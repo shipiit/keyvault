@@ -25,16 +25,6 @@
 const OTPAUTH_PATTERN = /otpauth:\/\/totp\/[^\s"'<>]+/i;
 
 /**
- * A bare base32 secret shown on its own, as a fallback.
- *
- * Deliberately strict — at least 16 base32 characters, optionally in
- * space-separated groups. A loose pattern matches hex ids, tracking tokens
- * and CSS class names, and silently stores a secret that will never produce
- * a working code.
- */
-const BARE_SECRET_PATTERN = /\b(?:[A-Z2-7]{4}[\s-]?){4,}[A-Z2-7]{0,8}\b/;
-
-/**
  * Search the page's visible text for a setup secret.
  *
  * @param {Document} doc
@@ -68,23 +58,116 @@ export function findOtpauthInText(doc) {
 }
 
 /**
- * Search the page's visible text for a bare base32 secret.
+ * Search for a bare setup key that the page has explicitly labelled.
  *
- * Separate from `findOtpauthInText` and tried last: a bare secret carries no
- * issuer, digits or period, so the caller must fill those in, and the match
- * is inherently less certain.
+ * **This must never guess.** Every letter A–Z is a valid base32 character,
+ * so ordinary prose matches a naive pattern: on a real two-step setup page
+ * this once matched the heading "STEP VERIFICATION SCAN THE" and stored it
+ * as the secret. The failure is silent — the entry looks fine and produces
+ * six digits — and only surfaces when the site rejects the code.
+ *
+ * So a match requires an adjacent label saying what it is, and the key must
+ * be a single unbroken token or evenly spaced groups. Prose satisfies
+ * neither.
  *
  * @param {Document} doc
  * @returns {{secret: string, source: 'secret'}|null}
  */
 export function findBareSecretInText(doc) {
   const visible = doc.body?.innerText ?? '';
-  const match = BARE_SECRET_PATTERN.exec(visible.toUpperCase());
-  if (match === null) {
+
+  // Find where the page says it is about to give you a key. Without this
+  // anchor there is no way to tell a secret from a sentence.
+  const label = /(?:secret|setup\s*key|manual\s*(?:entry|code|setup)|account\s*key|\bkey\b)/i.exec(
+    visible,
+  );
+  if (label === null) {
     return null;
   }
-  const secret = match[0].replace(/[\s-]/g, '');
-  return secret.length >= 16 ? { secret, source: 'secret' } : null;
+
+  // Look only just past the label. A key is printed next to its caption,
+  // never paragraphs away, and a wider window is a wider chance of matching
+  // unrelated text.
+  const window = visible.slice(label.index + label[0].length, label.index + label[0].length + 160);
+
+  // Consider each line separately: the key is on its own line, or directly
+  // after the caption on the same one.
+  for (const line of window.split('\n')) {
+    const secret = keyFromLine(line);
+    if (secret !== null) {
+      return { secret, source: 'secret' };
+    }
+  }
+  return null;
+}
+
+/**
+ * A setup key on one line, or null.
+ *
+ * A real key is a single unbroken token, or evenly sized groups — never a
+ * run of words of differing lengths. That distinction is what separates
+ * `MPSM R2AS VWLI USL7` from `code shown above to continue`.
+ *
+ * @param {string} line
+ * @returns {string|null}
+ */
+function keyFromLine(line) {
+  const tokens = line
+    .trim()
+    .replace(/^[:=\s]+/, '')
+    .split(/[\s-]+/)
+    .filter(Boolean);
+
+  // Try each starting position, so connective words between the caption and
+  // the key — "Your secret is ABCD…" — do not hide it.
+  for (let start = 0; start < tokens.length; start += 1) {
+    const run = [];
+    for (let index = start; index < tokens.length; index += 1) {
+      if (!/^[A-Za-z2-7]+$/.test(tokens[index])) {
+        break;
+      }
+      run.push(tokens[index]);
+    }
+    const secret = keyFromRun(run);
+    if (secret !== null) {
+      return secret;
+    }
+  }
+  return null;
+}
+
+/**
+ * A key from a run of tokens, or null.
+ *
+ * @param {string[]} run
+ * @returns {string|null}
+ */
+function keyFromRun(run) {
+  if (run.length === 0) {
+    return null;
+  }
+  // A real key is one unbroken token, or evenly sized groups. A run of words
+  // of differing lengths is prose.
+  if (run.length > 1 && new Set(run.map((token) => token.length)).size !== 1) {
+    return null;
+  }
+
+  const compact = run.join('').toUpperCase();
+
+  // RFC 4226 puts the floor at 80 bits, which is 16 base32 characters.
+  if (compact.length < 16 || !/^[A-Z2-7]+$/.test(compact)) {
+    return null;
+  }
+
+  // At least one digit. Every letter A–Z is valid base32, so a long enough
+  // English word passes every other check — and storing a word as a secret
+  // produces six digits the site will always reject, silently.
+  //
+  // The cost is a false negative on a key that happens to be all letters:
+  // for a 16-character key that is about one in thirty, and those users
+  // paste the key by hand instead. A missed detection is recoverable in
+  // seconds; a wrong secret is not noticed for weeks.
+  return /[2-7]/.test(compact) ? compact : null;
 }
 
 /** @returns {boolean} whether this browser can decode a QR image natively */
@@ -248,6 +331,10 @@ export async function scanPageForTotp(doc = document) {
     return { found: true, ...inImage };
   }
 
+  // Deliberately last, and deliberately conservative — see
+  // findBareSecretInText. A wrong secret stored silently is worse than no
+  // secret stored at all: the entry looks correct and produces six digits
+  // that the site will always reject.
   const bare = findBareSecretInText(doc);
   if (bare !== null) {
     return { found: true, ...bare };

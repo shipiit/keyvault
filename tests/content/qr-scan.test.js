@@ -85,22 +85,63 @@ describe('findOtpauthInText — defensive paths', () => {
   });
 });
 
-describe('findBareSecretInText', () => {
-  it('finds a secret printed in groups', () => {
-    document.body.innerHTML = '<p>Setup key: JBSW Y3DP EHPK 3PXP MPSM</p>';
-    expect(findBareSecretInText(document).secret).toBe('JBSWY3DPEHPK3PXPMPSM');
+describe('findBareSecretInText — must never guess', () => {
+  const KEY = 'K5XQ7ZTM2WFB4HRJ6NPD3SVA5YCE7GLU';
+  const find = (text) => {
+    document.body.textContent = text;
+    return findBareSecretInText(document)?.secret ?? null;
+  };
+
+  it('refuses a real two-step page that only shows a QR and backup codes', () => {
+    // The bug this guards. An earlier pattern matched the page heading and
+    // stored "STEPVERIFICATIONSCANTHE" as the secret. The entry looked
+    // correct and produced six digits, and the site rejected every one.
+    expect(
+      find(
+        'TWO-STEP VERIFICATION\n' +
+          'Scan the QR code with your authenticator app, then enter the 6-digit code below.\n' +
+          'First-time setup\nBackup codes\n' +
+          'r6746fah z5pkxwvl\nzbzcnx7n jr333ds6\nk2qtuuuq hu6les52',
+      ),
+    ).toBeNull();
   });
 
-  it('ignores anything too short to be a real secret', () => {
-    document.body.innerHTML = '<p>CODE ABCD</p>';
-    expect(findBareSecretInText(document)).toBeNull();
+  it('refuses ordinary prose, which is entirely valid base32', () => {
+    expect(find('Lost your key? Use a backup code shown above to continue')).toBeNull();
+    expect(find('PLEASE ENTER THE CODE SHOWN ABOVE TO CONTINUE NOW')).toBeNull();
   });
 
-  it('is not fooled by ordinary prose', () => {
-    // A loose pattern here matches hex ids and CSS class names, and stores a
-    // secret that will never produce a working code.
-    document.body.innerHTML = '<p>Welcome back, please sign in to continue today</p>';
-    expect(findBareSecretInText(document)).toBeNull();
+  it('refuses a key with no caption saying what it is', () => {
+    expect(find(KEY)).toBeNull();
+  });
+
+  it('refuses a long word sitting after a key caption', () => {
+    expect(find('Secret internationalization')).toBeNull();
+  });
+
+  it('refuses anything below the 80-bit floor', () => {
+    expect(find('Setup key: ABCD')).toBeNull();
+    expect(find('Setup key: K5XQ7ZTM2WFB4H')).toBeNull();
+  });
+
+  it('finds a key the page has captioned', () => {
+    expect(find(`Setup key: ${KEY}`)).toBe(KEY);
+    expect(find(`Secret = ${KEY}`)).toBe(KEY);
+    expect(find(`Your secret is ${KEY}`)).toBe(KEY);
+  });
+
+  it('finds a key on the line after its caption', () => {
+    expect(find(`Manual entry code\n${KEY}`)).toBe(KEY);
+  });
+
+  it('finds a key printed in evenly sized groups', () => {
+    expect(find('Setup key:\nK5XQ 7ZTM 2WFB 4HRJ 6NPD 3SVA 5YCE 7GLU')).toBe(KEY);
+  });
+
+  it('does not reach paragraphs away from the caption', () => {
+    // A key is printed beside its caption. A wider window is only a wider
+    // chance of matching something unrelated.
+    expect(find(`Setup key:\n${'filler text here. '.repeat(20)}\n${KEY}`)).toBeNull();
   });
 });
 
