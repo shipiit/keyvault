@@ -13,6 +13,21 @@ export const MAX_PASSWORD_HISTORY = 10;
 const IMMUTABLE_FIELDS = ['id', 'createdAt', 'passwordHistory'];
 
 /**
+ * Item kinds.
+ *
+ * `login` is the only one autofill acts on. The rest are storage: a card or a
+ * passport number must never be offered to a login form, so the type is the
+ * gate rather than a label. `entriesForUrl` and the fill path both filter on
+ * it.
+ */
+export const ENTRY_TYPES = Object.freeze(['login', 'note', 'card', 'identity', 'document']);
+
+/** @param {unknown} value */
+function normaliseType(value) {
+  return ENTRY_TYPES.includes(value) ? value : 'login';
+}
+
+/**
  * @param {object} fields
  * @param {number} [now] milliseconds since epoch
  * @returns {object} a new entry
@@ -24,6 +39,7 @@ export function createEntry(fields = {}, now = Date.now()) {
   }
   return {
     id: randomId(),
+    type: normaliseType(fields.type),
     title,
     username: fields.username ?? '',
     password: fields.password ?? '',
@@ -35,6 +51,8 @@ export function createEntry(fields = {}, now = Date.now()) {
     // Strict `=== true`: auto-submit is opt-in per entry, and a truthy
     // string or 1 arriving from an importer must not silently enable it.
     autoSubmit: fields.autoSubmit === true,
+    favorite: fields.favorite === true,
+    fields: typeof fields.fields === 'object' && fields.fields !== null ? { ...fields.fields } : {},
     passwordHistory: [],
     createdAt: now,
     updatedAt: now,
@@ -56,6 +74,9 @@ export function updateEntry(entry, changes = {}, now = Date.now()) {
     delete safe[field];
   }
 
+  if (safe.type !== undefined) {
+    safe.type = normaliseType(safe.type);
+  }
   if (safe.title !== undefined) {
     const title = String(safe.title).trim();
     if (title === '') {

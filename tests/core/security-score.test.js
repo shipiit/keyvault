@@ -134,8 +134,20 @@ describe('describeIssues', () => {
   it('describes each issue kind with a count', () => {
     const described = describeIssues({ breached: 1, reused: 3, weak: 0, old: 2 });
     expect(described.map((d) => d.kind)).toEqual(['breached', 'reused', 'old']);
-    expect(described[0].text).toBe('1 password appear in known breaches');
     expect(described[1].text).toBe('3 passwords are used on more than one site');
+  });
+
+  it('agrees the verb with the count', () => {
+    // "1 password are reused" reads as a bug in the product, even though the
+    // number itself is correct.
+    for (const kind of ['breached', 'reused', 'weak', 'old']) {
+      const [singular] = describeIssues({ breached: 0, reused: 0, weak: 0, old: 0, [kind]: 1 });
+      expect(singular.text, kind).not.toMatch(/\bpassword (are|have|appear)\b/);
+      expect(singular.text, kind).toMatch(/^1 password (is|has|appears)\b/);
+
+      const [plural] = describeIssues({ breached: 0, reused: 0, weak: 0, old: 0, [kind]: 4 });
+      expect(plural.text, kind).toMatch(/^4 passwords (are|have|appear)\b/);
+    }
   });
 
   it('returns nothing for a clean vault', () => {

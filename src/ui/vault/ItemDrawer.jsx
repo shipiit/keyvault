@@ -46,6 +46,7 @@ export function ItemDrawer({ entry = null, onSave, onClose }) {
       setShowTotp(false);
       return;
     }
+    setType(entry.type ?? 'login');
     setValues({
       title: entry.title ?? '',
       username: entry.username ?? '',
@@ -66,7 +67,10 @@ export function ItemDrawer({ entry = null, onSave, onClose }) {
       }
     }
     window.addEventListener('keydown', handleKey);
-    panelRef.current?.querySelector('input')?.focus();
+    // preventScroll: without it the browser scrolls the focused field to the
+    // top of the pane, hiding the item-type selector and the Title label
+    // above it the moment the drawer opens.
+    panelRef.current?.querySelector('input')?.focus({ preventScroll: true });
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
@@ -131,18 +135,13 @@ export function ItemDrawer({ entry = null, onSave, onClose }) {
               {TYPES.map((option) => {
                 const IconComponent = option.icon;
                 const active = type === option.id;
-                // Only logins are implemented; the rest are visible so the
-                // shape of the product is clear, and disabled so nothing
-                // promises a feature that does not exist yet.
-                const available = option.id === 'login';
                 return (
                   <button
                     key={option.id}
                     type="button"
                     role="radio"
                     aria-checked={active}
-                    disabled={!available}
-                    title={available ? option.label : `${option.label} — coming soon`}
+                    title={option.label}
                     onClick={() => setType(option.id)}
                     className={[
                       'flex flex-col items-center gap-1 rounded-[var(--radius-field)] px-1 py-2.5',
@@ -171,13 +170,15 @@ export function ItemDrawer({ entry = null, onSave, onClose }) {
               onInput={set('title')}
             />
 
-            <Field
-              label="Username or email"
-              value={values.username}
-              placeholder="e.g. you@example.com"
-              autoComplete="off"
-              onInput={set('username')}
-            />
+            {type === 'login' && (
+              <Field
+                label="Username or email"
+                value={values.username}
+                placeholder="e.g. you@example.com"
+                autoComplete="off"
+                onInput={set('username')}
+              />
+            )}
 
             <div className="flex flex-col gap-1.5">
               <label

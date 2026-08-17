@@ -30,8 +30,7 @@ const VIEW_TITLES = {
   document: 'Documents',
 };
 
-/** Only logins exist so far; the other categories are always empty. */
-const IMPLEMENTED_CATEGORIES = new Set(['login']);
+const CATEGORY_IDS = new Set(['login', 'note', 'card', 'identity', 'document']);
 
 function App() {
   const [status, setStatus] = useState(null);
@@ -42,6 +41,9 @@ function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [drawer, setDrawer] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem('keyvault.theme') ?? 'system');
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem('keyvault.sidebar') === 'collapsed',
+  );
   const [error, setError] = useState(null);
 
   // The theme override is stored per device rather than in the vault: it must
@@ -87,16 +89,17 @@ function App() {
   const counts = useMemo(() => {
     const list = entries ?? [];
     const recentCutoff = Date.now() - 7 * 86400000;
+    const byType = (type) => list.filter((e) => (e.type ?? 'login') === type).length;
     return {
       all: list.length,
       favorites: list.filter((e) => e.favorite).length,
       recent: list.filter((e) => (e.lastUsedAt ?? 0) > recentCutoff).length,
       trash: 0,
-      login: list.length,
-      note: 0,
-      card: 0,
-      identity: 0,
-      document: 0,
+      login: byType('login'),
+      note: byType('note'),
+      card: byType('card'),
+      identity: byType('identity'),
+      document: byType('document'),
     };
   }, [entries]);
 
@@ -108,7 +111,7 @@ function App() {
       const cutoff = Date.now() - 7 * 86400000;
       list = list.filter((e) => (e.lastUsedAt ?? 0) > cutoff);
     } else if (view === 'trash') list = [];
-    else if (!IMPLEMENTED_CATEGORIES.has(view) && view !== 'all') list = [];
+    else if (CATEGORY_IDS.has(view)) list = list.filter((e) => (e.type ?? 'login') === view);
 
     const needle = query.trim().toLowerCase();
     if (needle !== '') {
@@ -130,6 +133,7 @@ function App() {
       urls: values.url.trim() === '' ? [] : [values.url.trim()],
       notes: values.notes,
       autoSubmit: values.autoSubmit === true,
+      type: values.type ?? 'login',
       totpUri: values.totpUri.trim() === '' ? undefined : values.totpUri.trim(),
     };
 
@@ -195,6 +199,13 @@ function App() {
           counts={counts}
           score={score}
           onOpenScore={() => setView('all')}
+          collapsed={collapsed}
+          onToggle={() => {
+            setCollapsed((current) => {
+              localStorage.setItem('keyvault.sidebar', current ? 'expanded' : 'collapsed');
+              return !current;
+            });
+          }}
         />
 
         <ItemList

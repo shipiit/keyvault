@@ -73,6 +73,12 @@ export function hostMatches(entryHost, pageHost) {
  * @returns {boolean}
  */
 export function entryMatchesUrl(entry, pageUrl) {
+  // Only logins are ever offered to a page. A stored card number or passport
+  // detail must never reach a login form, and the type is the gate rather
+  // than a display label.
+  if (entry.type !== undefined && entry.type !== 'login') {
+    return false;
+  }
   const pageHost = toHostname(pageUrl);
   if (pageHost === null || !Array.isArray(entry.urls)) {
     return false;

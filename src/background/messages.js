@@ -67,6 +67,7 @@ export class NotAuthorizedError extends KeyVaultError {}
 function toSummary(entry) {
   return {
     id: entry.id,
+    type: entry.type ?? 'login',
     title: entry.title,
     username: entry.username,
     urls: entry.urls,

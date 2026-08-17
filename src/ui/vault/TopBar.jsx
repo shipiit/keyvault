@@ -24,7 +24,7 @@ export function TopBar({ query, onQuery, onNewItem, onLock, theme, onTheme, onSe
 
   return (
     <header className="flex items-center gap-4 border-b border-[var(--color-border)] bg-[var(--color-chrome)] px-5 py-3">
-      <div className="flex w-52 shrink-0 items-center gap-2.5">
+      <div className="flex w-56 shrink-0 items-center gap-2.5">
         <span
           className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-card)] bg-[var(--color-accent)]"
           aria-hidden="true"
@@ -34,7 +34,7 @@ export function TopBar({ query, onQuery, onNewItem, onLock, theme, onTheme, onSe
         <span className="flex min-w-0 flex-col leading-tight">
           <span className="truncate text-sm font-semibold">KeyVault</span>
           <span className="truncate text-[11px] text-[var(--color-fg-muted)]">
-            Secure. Simple. On this device.
+            Local only. Always yours.
           </span>
         </span>
       </div>

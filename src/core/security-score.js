@@ -125,18 +125,24 @@ function labelFor(score) {
  * @returns {Array<{kind: string, count: number, text: string}>}
  */
 export function describeIssues(counts) {
+  // Singular and plural phrasings are both written out. Interpolating a
+  // count into one fixed phrase produces "1 password are reused", which
+  // reads as a bug in the product even though the number is right.
   const descriptions = [
-    ['breached', 'appear in known breaches'],
-    ['reused', 'are used on more than one site'],
-    ['weak', 'are easy to guess'],
-    ['old', 'have not been changed in over a year'],
+    ['breached', 'appears in a known breach', 'appear in known breaches'],
+    ['reused', 'is used on more than one site', 'are used on more than one site'],
+    ['weak', 'is easy to guess', 'are easy to guess'],
+    ['old', 'has not changed in over a year', 'have not changed in over a year'],
   ];
 
   return descriptions
     .filter(([kind]) => counts[kind] > 0)
-    .map(([kind, phrase]) => ({
-      kind,
-      count: counts[kind],
-      text: `${counts[kind]} ${counts[kind] === 1 ? 'password' : 'passwords'} ${phrase}`,
-    }));
+    .map(([kind, singular, plural]) => {
+      const count = counts[kind];
+      return {
+        kind,
+        count,
+        text: `${count} ${count === 1 ? 'password' : 'passwords'} ${count === 1 ? singular : plural}`,
+      };
+    });
 }
