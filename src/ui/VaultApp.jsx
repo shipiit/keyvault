@@ -6,6 +6,9 @@ import { ItemDetail } from './vault/ItemDetail.jsx';
 import { ItemDrawer } from './vault/ItemDrawer.jsx';
 import { Settings } from './vault/Settings.jsx';
 import { GeneratorPage } from './vault/GeneratorPage.jsx';
+import { TrashView } from './vault/TrashView.jsx';
+import { WatchtowerView } from './vault/WatchtowerView.jsx';
+import { restoreEntryRemote, listTrash } from './lib/messaging.js';
 import { Unlock } from './screens/Unlock.jsx';
 import { Onboarding } from './screens/Onboarding.jsx';
 import { Icon } from './vault/primitives.jsx';
@@ -63,6 +66,7 @@ export function VaultApp({ compact = false }) {
     () => compact || localStorage.getItem('keyvault.sidebar') === 'collapsed',
   );
   const [error, setError] = useState(null);
+  const [undo, setUndo] = useState(null);
 
   // The theme override is stored per device rather than in the vault: it must
   // apply on the lock screen, before anything is decrypted.
@@ -104,6 +108,16 @@ export function VaultApp({ compact = false }) {
     }
   }, [status, refreshEntries]);
 
+  const [trashCount, setTrashCount] = useState(0);
+
+  useEffect(() => {
+    if (status?.initialized && !status.locked) {
+      listTrash()
+        .then(({ entries: trashed }) => setTrashCount(trashed.length))
+        .catch(() => setTrashCount(0));
+    }
+  }, [status, entries]);
+
   const counts = useMemo(() => {
     const list = entries ?? [];
     const recentCutoff = Date.now() - 7 * 86400000;
@@ -112,14 +126,14 @@ export function VaultApp({ compact = false }) {
       all: list.length,
       favorites: list.filter((e) => e.favorite).length,
       recent: list.filter((e) => (e.lastUsedAt ?? 0) > recentCutoff).length,
-      trash: 0,
+      trash: trashCount,
       login: byType('login'),
       note: byType('note'),
       card: byType('card'),
       identity: byType('identity'),
       document: byType('document'),
     };
-  }, [entries]);
+  }, [entries, trashCount]);
 
   const visible = useMemo(() => {
     let list = entries ?? [];
@@ -128,7 +142,7 @@ export function VaultApp({ compact = false }) {
     else if (view === 'recent') {
       const cutoff = Date.now() - 7 * 86400000;
       list = list.filter((e) => (e.lastUsedAt ?? 0) > cutoff);
-    } else if (view === 'trash') list = [];
+    } else if (view === 'trash' || view === 'watchtower') list = [];
     else if (CATEGORY_IDS.has(view)) list = list.filter((e) => (e.type ?? 'login') === view);
 
     const needle = query.trim().toLowerCase();
@@ -220,7 +234,10 @@ export function VaultApp({ compact = false }) {
           }}
           counts={counts}
           score={score}
-          onOpenScore={() => setView('all')}
+          onOpenScore={() => {
+            setView('watchtower');
+            setSelectedId(null);
+          }}
           collapsed={collapsed}
           onToggle={() => {
             setCollapsed((current) => {
@@ -234,6 +251,24 @@ export function VaultApp({ compact = false }) {
           <Settings onChanged={refreshEntries} />
         ) : view === 'generator' ? (
           <GeneratorPage />
+        ) : view === 'trash' ? (
+          <TrashView onChanged={refreshEntries} />
+        ) : view === 'watchtower' ? (
+          <WatchtowerView
+            score={score}
+            entries={entries}
+            onOpenEntry={(id) => {
+              // Land on the item itself rather than merely filtering to it:
+              // the point of the list is to fix the thing, and the fix is in
+              // the detail pane.
+              setView('all');
+              setSelectedId(id);
+            }}
+            onOpenSettings={() => {
+              setView('settings');
+              setSelectedId(null);
+            }}
+          />
         ) : (
           <>
             <ItemList
@@ -256,11 +291,31 @@ export function VaultApp({ compact = false }) {
                 compact={compact}
                 entryId={selectedId}
                 onEdit={(entry) => setDrawer({ entry })}
-                onChanged={refreshEntries}
+                onChanged={(result) => {
+                  // An undo offered right where the action happened. The
+                  // trash is the safety net; this is the one people use.
+                  if (result?.trashed !== undefined) {
+                    setUndo(result.trashed);
+                  }
+                  refreshEntries();
+                }}
                 onClose={() => setSelectedId(null)}
               />
             )}
           </>
+        )}
+
+        {undo !== null && (
+          <UndoToast
+            entry={undo}
+            onUndo={async () => {
+              await restoreEntryRemote(undo.id);
+              setSelectedId(undo.id);
+              setUndo(null);
+              refreshEntries();
+            }}
+            onDismiss={() => setUndo(null)}
+          />
         )}
 
         {drawer !== null && (
@@ -272,6 +327,42 @@ export function VaultApp({ compact = false }) {
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * A short-lived offer to undo the last deletion.
+ *
+ * Dismisses itself after ten seconds. The item is still in the trash after
+ * that — this only saves the trip there, which is what makes deleting feel
+ * safe enough to do without a confirmation dialog.
+ */
+function UndoToast({ entry, onUndo, onDismiss }) {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 10000);
+    return () => clearTimeout(timer);
+  }, [entry, onDismiss]);
+
+  return (
+    <div
+      role="status"
+      className={[
+        'fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-4',
+        'rounded-[var(--radius-card)] border border-[var(--color-border)]',
+        'bg-[var(--color-panel)] py-3 pl-4 pr-3 shadow-xl',
+      ].join(' ')}
+    >
+      <span className="text-sm">
+        Moved <strong className="font-semibold">{entry.title}</strong> to the trash
+      </span>
+      <button
+        type="button"
+        onClick={onUndo}
+        className="rounded-[var(--radius-field)] px-2 py-1 text-sm font-semibold text-[var(--color-accent)] transition-colors duration-[var(--dur-150)] hover:bg-[var(--color-surface-hover)]"
+      >
+        Undo
+      </button>
     </div>
   );
 }

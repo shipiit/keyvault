@@ -212,7 +212,15 @@ export function createVaultService({ chrome, kdfOverrides = {}, onDerive = null 
      * @param {string} credentialId
      */
     async enableDeviceUnlock(prfOutput, credentialId, rpId) {
-      const key = await requireKey();
+      // Extractable, unlike everywhere else: wrapping means encrypting the
+      // key's own bytes, so they have to be readable. The service worker is
+      // almost always a fresh one by the time this runs — the key it reloads
+      // from session storage is non-extractable, which is what made enrolling
+      // fail with "vault key must be extractable".
+      const key = await sessionKey.load({ extractable: true });
+      if (key === null) {
+        throw new VaultLockedError('vault is locked');
+      }
       const record = await wrapVaultKey(key, prfOutput, credentialId);
       // The RP ID is stored with the record: unlocking must use the same one
       // the credential was registered under, or the authenticator will not

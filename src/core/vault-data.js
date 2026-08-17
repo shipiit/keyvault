@@ -71,6 +71,32 @@ export function removeEntry(vault, id) {
 }
 
 /**
+ * Entries not in the trash.
+ *
+ * Every list, search and match goes through this. A trashed credential
+ * still exists — it must, for restore to be possible — but it must never be
+ * offered to a page or counted as saved.
+ *
+ * @param {object} vault
+ * @returns {object[]}
+ */
+export function liveEntries(vault) {
+  return vault.entries.filter((entry) => typeof entry.deletedAt !== 'number');
+}
+
+/**
+ * Entries in the trash, most recently deleted first.
+ *
+ * @param {object} vault
+ * @returns {object[]}
+ */
+export function trashedEntries(vault) {
+  return vault.entries
+    .filter((entry) => typeof entry.deletedAt === 'number')
+    .sort((a, b) => b.deletedAt - a.deletedAt);
+}
+
+/**
  * @param {object} vault
  * @param {string} id
  * @returns {object|null}
@@ -93,10 +119,13 @@ export function findEntry(vault, id) {
  */
 export function searchEntries(vault, query) {
   const needle = query.trim().toLowerCase();
+  // Trashed entries are excluded everywhere, including search: finding one
+  // and filling it would defeat the point of having deleted it.
+  const live = liveEntries(vault);
   if (needle === '') {
-    return [...vault.entries];
+    return live;
   }
-  return vault.entries.filter((entry) => {
+  return live.filter((entry) => {
     const haystack = [entry.title, entry.username, ...entry.urls, ...entry.tags]
       .join('\n')
       .toLowerCase();

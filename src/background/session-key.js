@@ -74,16 +74,29 @@ export function createSessionKeyStore(chrome) {
     },
 
     /**
+     * The loaded key is non-extractable by default: nothing in normal use
+     * needs its bytes, and a handle that cannot be exported cannot leak them.
+     *
+     * `extractable: true` exists for one caller — enrolling device unlock,
+     * which must wrap the vault key for the authenticator and therefore has
+     * to read it. That is not a weakening: the raw bytes are sitting in
+     * session storage either way, and this store is the thing that put them
+     * there. It stays opt-in so the extractable path is visible at the call
+     * site rather than being the ambient default.
+     *
+     * @param {{extractable?: boolean}} [options]
      * @returns {Promise<CryptoKey|null>} null when locked
      */
-    async load() {
+    async load(options = {}) {
       const stored = await chrome.storage.session.get(SESSION_KEY);
       const encoded = stored[SESSION_KEY];
       if (typeof encoded !== 'string' || encoded === '') {
         return null;
       }
       try {
-        return await importRawKey(fromBase64(encoded));
+        return await importRawKey(fromBase64(encoded), {
+          extractable: options.extractable === true,
+        });
       } catch {
         // A malformed session value means the vault is not usable. Treating
         // that as "locked" prompts a clean re-unlock; throwing would strand

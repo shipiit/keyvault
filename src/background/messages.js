@@ -1,10 +1,12 @@
-import { createEntry, updateEntry } from '../core/entry.js';
+import { createEntry, updateEntry, trashEntry, restoreEntry } from '../core/entry.js';
 import {
   addEntry,
   replaceEntry,
   removeEntry,
   findEntry,
   searchEntries,
+  liveEntries,
+  trashedEntries,
 } from '../core/vault-data.js';
 import { entriesForUrl, entryMatchesUrl, toHostname, toOrigin } from '../core/url-match.js';
 import { parseTotpInput, generateTotp, totpTimeRemaining } from '../core/totp.js';
@@ -84,6 +86,7 @@ function toSummary(entry) {
     folderId: entry.folderId,
     hasTotp: entry.totp !== null && entry.totp !== undefined,
     favorite: entry.favorite === true,
+    deletedAt: entry.deletedAt ?? null,
     autoSubmit: entry.autoSubmit,
     lastUsedAt: entry.lastUsedAt,
     updatedAt: entry.updatedAt,
@@ -225,9 +228,82 @@ export function createMessageRouter({
 
     'entries/delete': {
       contentScript: false,
+      /**
+       * Move an entry to the trash.
+       *
+       * Reversible on purpose. Nothing holds a copy of this vault, so a
+       * mis-click that destroyed a credential outright would be
+       * unrecoverable — there is no server to restore from and no other
+       * device that has it.
+       */
       handle: async ({ id }) => {
-        await vault.mutate((data) => removeEntry(data, id));
-        return { deleted: true };
+        await vault.mutate((data) => {
+          const existing = findEntry(data, id);
+          if (existing === null) {
+            throw new Error(`entry not found: ${id}`);
+          }
+          return replaceEntry(data, trashEntry(existing, now()));
+        });
+        return { trashed: true };
+      },
+    },
+
+    'entries/restore': {
+      contentScript: false,
+      handle: async ({ id }) => {
+        await vault.mutate((data) => {
+          const existing = findEntry(data, id);
+          if (existing === null) {
+            throw new Error(`entry not found: ${id}`);
+          }
+          return replaceEntry(data, restoreEntry(existing));
+        });
+        return { restored: true };
+      },
+    },
+
+    'entries/purge': {
+      contentScript: false,
+      /**
+       * Delete for good.
+       *
+       * Only ever from the trash. Purging something the user can still see
+       * in a normal list would make the trash pointless, and there is
+       * nothing to undo it with.
+       */
+      handle: async ({ id }) => {
+        await vault.mutate((data) => {
+          const existing = findEntry(data, id);
+          if (existing === null) {
+            throw new Error(`entry not found: ${id}`);
+          }
+          if (typeof existing.deletedAt !== 'number') {
+            throw new Error('an entry must be in the trash before it can be deleted for good');
+          }
+          return removeEntry(data, id);
+        });
+        return { purged: true };
+      },
+    },
+
+    'entries/trash': {
+      contentScript: false,
+      handle: async () => {
+        const data = await vault.getData();
+        return { entries: trashedEntries(data).map(toSummary) };
+      },
+    },
+
+    'entries/emptyTrash': {
+      contentScript: false,
+      handle: async () => {
+        let removed = 0;
+        await vault.mutate((data) => {
+          const kept = liveEntries(data);
+          removed = data.entries.length - kept.length;
+          return { ...data, entries: kept };
+        });
+        return { removed };
       },
     },
 
@@ -420,7 +496,10 @@ export function createMessageRouter({
       handle: async () => {
         const data = await vault.getData();
         const breachedIds = data.settings?.breachCheckEnabled === true ? [] : undefined;
-        return computeSecurityScore(data.entries, { now: now(), breachedIds });
+        // Live entries only: a trashed password is not one the user still
+        // relies on, and counting it would make the score worse for tidying
+        // up.
+        return computeSecurityScore(liveEntries(data), { now: now(), breachedIds });
       },
     },
 
@@ -686,7 +765,7 @@ export function createMessageRouter({
         }
 
         const data = await vault.getData();
-        const existing = data.entries.find(
+        const existing = liveEntries(data).find(
           (entry) => entryMatchesUrl(entry, url) && (entry.username ?? '') === (username ?? ''),
         );
 
@@ -736,7 +815,7 @@ export function createMessageRouter({
         }
 
         const data = await vault.getData();
-        const existing = data.entries.find(
+        const existing = liveEntries(data).find(
           (entry) => entryMatchesUrl(entry, url) && (entry.username ?? '') === (username ?? ''),
         );
 

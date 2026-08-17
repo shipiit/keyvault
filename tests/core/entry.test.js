@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { createEntry, updateEntry, MAX_PASSWORD_HISTORY } from '../../src/core/entry.js';
+import {
+  createEntry,
+  updateEntry,
+  trashEntry,
+  restoreEntry,
+  isTrashed,
+  MAX_PASSWORD_HISTORY,
+} from '../../src/core/entry.js';
 
 const NOW = 1700000000000;
 
@@ -58,6 +65,44 @@ describe('createEntry', () => {
   it('generates unique ids', () => {
     const ids = new Set(Array.from({ length: 100 }, () => createEntry({ title: 't' }, NOW).id));
     expect(ids.size).toBe(100);
+  });
+});
+
+describe('trash', () => {
+  it('starts an entry out of the trash', () => {
+    expect(createEntry({ title: 'x' }, NOW).deletedAt).toBeNull();
+    expect(isTrashed(createEntry({ title: 'x' }, NOW))).toBe(false);
+  });
+
+  it('stamps when it was trashed, without mutating the original', () => {
+    const entry = createEntry({ title: 'x' }, NOW);
+    const trashed = trashEntry(entry, NOW + 500);
+
+    expect(trashed.deletedAt).toBe(NOW + 500);
+    expect(isTrashed(trashed)).toBe(true);
+    expect(entry.deletedAt).toBeNull();
+  });
+
+  it('leaves updatedAt alone', () => {
+    // Deleting is not an edit. The list sorts on updatedAt, and moving an
+    // item to the top because it was deleted is the opposite of useful.
+    const entry = createEntry({ title: 'x' }, NOW);
+    expect(trashEntry(entry, NOW + 5000).updatedAt).toBe(NOW);
+  });
+
+  it('restores without losing anything', () => {
+    const entry = createEntry({ title: 'x', password: 'p', username: 'u' }, NOW);
+    const restored = restoreEntry(trashEntry(entry, NOW + 500));
+
+    expect(restored.deletedAt).toBeNull();
+    expect(restored.password).toBe('p');
+    expect(restored.username).toBe('u');
+    expect(restored.id).toBe(entry.id);
+  });
+
+  it('treats an entry with no deletedAt field as live', () => {
+    // Entries created before soft delete existed have no such field.
+    expect(isTrashed({ title: 'old' })).toBe(false);
   });
 });
 

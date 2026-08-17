@@ -107,22 +107,16 @@ function buildActions({ entry, onChanged, onClose }) {
     },
     { type: 'separator' },
     {
-      label: 'Delete item',
+      label: 'Move to trash',
       icon: Icon.Trash,
       tone: 'danger',
+      // No confirmation: the action is reversible, and a dialog on
+      // something undoable is noise that trains people to click through
+      // dialogs that are not.
       onSelect: async () => {
-        // The vault is local-only with no server-side undo, so a deletion
-        // is final. It gets an explicit confirmation naming the item.
-        const confirmed = window.confirm(
-          `Delete “${entry.title}” permanently?\n\n` +
-            'This cannot be undone — KeyVault has no server holding a copy.',
-        );
-        if (!confirmed) {
-          return;
-        }
         await deleteEntryRemote(entry.id);
         onClose();
-        onChanged();
+        onChanged({ trashed: entry });
       },
     },
   ];

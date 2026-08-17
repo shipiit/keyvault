@@ -103,6 +103,10 @@ export function hostMatches(entryHost, pageHost) {
  * @returns {boolean}
  */
 export function entryMatchesUrl(entry, pageUrl) {
+  // A trashed credential is never offered to a page.
+  if (typeof entry.deletedAt === 'number') {
+    return false;
+  }
   // Only logins are ever offered to a page. A stored card number or passport
   // detail must never reach a login form, and the type is the gate rather
   // than a display label.

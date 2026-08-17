@@ -196,6 +196,134 @@ describe('message router', () => {
     });
   });
 
+  describe('trash', () => {
+    it('moves an entry to the trash rather than destroying it', async () => {
+      // Nothing holds a copy of this vault, so a mis-click must not be the
+      // end of a credential.
+      const id = await addGithubEntry();
+      const res = await send('entries/delete', { id });
+
+      expect(res.data.trashed).toBe(true);
+      expect((await send('entries/get', { id })).ok).toBe(true);
+    });
+
+    it('hides a trashed entry from the list', async () => {
+      const id = await addGithubEntry();
+      await send('entries/delete', { id });
+      expect((await send('entries/list')).data.entries).toEqual([]);
+    });
+
+    it('hides a trashed entry from search', async () => {
+      // Finding one and filling it would defeat the point of deleting it.
+      const id = await addGithubEntry();
+      await send('entries/delete', { id });
+      expect((await send('entries/list', { query: 'github' })).data.entries).toEqual([]);
+    });
+
+    it('never offers a trashed entry to a page', async () => {
+      const id = await addGithubEntry();
+      await send('entries/delete', { id });
+
+      const listed = await router.handle(
+        { type: 'credentials/forUrl', payload: { url: 'https://github.com' } },
+        PAGE,
+      );
+      expect(listed.data.entries).toEqual([]);
+
+      const filled = await router.handle(
+        { type: 'credentials/fill', payload: { id, url: 'https://github.com' } },
+        PAGE,
+      );
+      expect(filled.ok).toBe(false);
+    });
+
+    it('never autofills a trashed entry', async () => {
+      const id = await addGithubEntry();
+      await send('entries/delete', { id });
+
+      const res = await router.handle(
+        { type: 'credentials/autofill', payload: { url: 'https://github.com/login' } },
+        PAGE,
+      );
+      expect(res.data.fill).toBeNull();
+    });
+
+    it('lists what is in the trash, most recent first', async () => {
+      // A moving clock: with the frozen one both deletions share a
+      // timestamp and the order is genuinely undefined, so asserting it
+      // would be asserting nothing.
+      let clock = NOW;
+      const timed = createMessageRouter({
+        chrome,
+        vault,
+        autoLock: createAutoLock({ chrome, vault }),
+        now: () => clock,
+      });
+      const ask = (type, payload) => timed.handle({ type, payload }, TRUSTED);
+
+      const first = await addGithubEntry();
+      const second = await addGithubEntry({ username: 'second@example.com' });
+
+      await ask('entries/delete', { id: first });
+      clock = NOW + 1000;
+      await ask('entries/delete', { id: second });
+
+      const { entries } = (await ask('entries/trash')).data;
+      expect(entries).toHaveLength(2);
+      expect(entries[0].id).toBe(second);
+    });
+
+    it('restores an entry exactly as it was', async () => {
+      const id = await addGithubEntry();
+      await send('entries/delete', { id });
+      await send('entries/restore', { id });
+
+      const [restored] = (await send('entries/list')).data.entries;
+      expect(restored.id).toBe(id);
+      expect(restored.username).toBe('rahul@example.com');
+      expect((await send('entries/get', { id })).data.entry.password).toBe('S3cr3t!');
+    });
+
+    it('refuses to destroy an entry that is not in the trash', async () => {
+      // Purging something still visible in a normal list would make the
+      // trash pointless.
+      const id = await addGithubEntry();
+      const res = await send('entries/purge', { id });
+
+      expect(res.ok).toBe(false);
+      expect(res.error.message).toMatch(/must be in the trash/);
+    });
+
+    it('destroys an entry once it is in the trash', async () => {
+      const id = await addGithubEntry();
+      await send('entries/delete', { id });
+      await send('entries/purge', { id });
+
+      expect((await send('entries/trash')).data.entries).toEqual([]);
+      expect((await send('entries/get', { id })).ok).toBe(false);
+    });
+
+    it('empties the trash without touching live entries', async () => {
+      const kept = await addGithubEntry();
+      const gone = await addGithubEntry({ username: 'second@example.com' });
+      await send('entries/delete', { id: gone });
+
+      const res = await send('entries/emptyTrash');
+      expect(res.data.removed).toBe(1);
+      expect((await send('entries/list')).data.entries[0].id).toBe(kept);
+    });
+
+    it('leaves a trashed password out of the security score', async () => {
+      // Counting it would make the score worse for tidying up.
+      const id = await addGithubEntry({ password: 'password' });
+      const before = (await send('security/score')).data;
+      await send('entries/delete', { id });
+      const after = (await send('security/score')).data;
+
+      expect(after.checked).toBeLessThan(before.checked);
+    });
+  });
+
   describe('credentials/autofill', () => {
     const ask = (url = 'https://github.com/login', sender = PAGE) =>
       router.handle({ type: 'credentials/autofill', payload: { url } }, sender);

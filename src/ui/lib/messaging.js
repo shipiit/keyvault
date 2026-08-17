@@ -74,6 +74,10 @@ export const getEntry = (id) => send('entries/get', { id });
 export const createEntryRemote = (fields) => send('entries/create', { fields });
 export const updateEntryRemote = (id, changes) => send('entries/update', { id, changes });
 export const deleteEntryRemote = (id) => send('entries/delete', { id });
+export const restoreEntryRemote = (id) => send('entries/restore', { id });
+export const purgeEntryRemote = (id) => send('entries/purge', { id });
+export const listTrash = () => send('entries/trash');
+export const emptyTrash = () => send('entries/emptyTrash');
 export const getTotp = (id) => send('entries/totp', { id });
 
 /**

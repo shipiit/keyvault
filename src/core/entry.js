@@ -13,6 +13,37 @@ export const MAX_PASSWORD_HISTORY = 10;
 const IMMUTABLE_FIELDS = ['id', 'createdAt', 'passwordHistory'];
 
 /**
+ * Move an entry to the trash, or bring it back.
+ *
+ * Kept apart from `updateEntry` because deleting is not an edit: it should
+ * not touch `updatedAt`, which is how the list is sorted and how the user
+ * recognises what they last changed.
+ *
+ * @param {object} entry
+ * @param {number} [now]
+ * @returns {object}
+ */
+export function trashEntry(entry, now = Date.now()) {
+  return { ...entry, deletedAt: now };
+}
+
+/**
+ * @param {object} entry
+ * @returns {object}
+ */
+export function restoreEntry(entry) {
+  return { ...entry, deletedAt: null };
+}
+
+/**
+ * @param {object} entry
+ * @returns {boolean}
+ */
+export function isTrashed(entry) {
+  return typeof entry.deletedAt === 'number';
+}
+
+/**
  * Item kinds.
  *
  * `login` is the only one autofill acts on. The rest are storage: a card or a
@@ -57,6 +88,9 @@ export function createEntry(fields = {}, now = Date.now()) {
     createdAt: now,
     updatedAt: now,
     lastUsedAt: null,
+    // Soft delete. Nothing holds a copy of this vault, so a mis-click must
+    // not be the end of a credential.
+    deletedAt: null,
   };
 }
 

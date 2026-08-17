@@ -193,7 +193,10 @@ export function attachInlineMenu({ field, kind, loadEntries, onChoose, onGenerat
   }
 
   async function openMenu() {
-    const entries = await loadEntries();
+    // A locked vault makes this reject. The menu still opens: it is where
+    // "Open KeyVault" lives, which is how the user unlocks. A badge that
+    // does nothing on click reads as broken.
+    const entries = await loadEntries().catch(() => []);
 
     const menu = document.createElement('div');
     menu.className = 'menu';

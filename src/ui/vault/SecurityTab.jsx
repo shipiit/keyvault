@@ -160,6 +160,18 @@ function BreachResult({ result }) {
         <p className="text-xs leading-relaxed text-[var(--color-fg-muted)]">
           {result.exposure.detail}
         </p>
+
+        {/* An unexplained number invites the question "says who?", and the
+            honest answer includes a limit worth stating: the corpus is
+            searched by password, so it can say how often this password has
+            leaked but not which site leaked it. Implying otherwise would be
+            the more comfortable copy and the wrong one. */}
+        <p className="mt-1 text-xs leading-relaxed text-[var(--color-fg-subtle)]">
+          Counted across the public breach corpus published by Have I Been Pwned. It says how many
+          times this <em>password</em> has appeared in a leak anywhere — not that your account was
+          breached, and not which site it leaked from. Only the first five characters of its hash
+          left this device; the password never did.
+        </p>
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ const VIEWS = [
   // A tool rather than a collection, so it carries no count and is always
   // shown — hiding it when empty would hide it permanently.
   { id: 'generator', label: 'Generator', icon: Icon.Refresh, tool: true },
+  { id: 'watchtower', label: 'Watchtower', icon: Icon.Shield, tool: true },
   { id: 'favorites', label: 'Favorites', icon: Icon.Star },
   { id: 'recent', label: 'Recent', icon: Icon.Clock },
   { id: 'trash', label: 'Trash', icon: Icon.Trash },

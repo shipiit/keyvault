@@ -192,4 +192,88 @@ describe('createVaultService', () => {
       expect((await vault.exportDocument()).kdf.salt).not.toBe(before);
     });
   });
+
+  describe('device unlock', () => {
+    // A stand-in for what the platform authenticator hands back. The real
+    // value comes from Touch ID; its only property that matters here is that
+    // the same secret returns on each successful assertion.
+    const PRF = new Uint8Array(32).fill(7);
+    const CREDENTIAL = 'credential-id';
+
+    beforeEach(async () => {
+      await vault.create(MASTER);
+      await vault.mutate((data) => addEntry(data, createEntry({ title: 'Kept' })));
+    });
+
+    /**
+     * Every real enrolment runs in a service worker that has restarted since
+     * the vault was unlocked — the user unlocks, opens settings, reads the
+     * page, then clicks. Building a second service over the same storage is
+     * what that looks like from the code's side, and it is the case that
+     * shipped broken: the reloaded key was non-extractable, so wrapping it
+     * failed with "vault key must be extractable".
+     */
+    const afterWorkerRestart = () => createVaultService({ chrome, kdfOverrides: FAST });
+
+    it('enrols after the service worker has restarted', async () => {
+      const revived = afterWorkerRestart();
+      await expect(revived.enableDeviceUnlock(PRF, CREDENTIAL, 'example.com')).resolves.toEqual({
+        enabled: true,
+      });
+    });
+
+    it('unlocks with the device secret, in another fresh worker', async () => {
+      await vault.enableDeviceUnlock(PRF, CREDENTIAL, 'example.com');
+      await vault.lock();
+
+      const revived = afterWorkerRestart();
+      await revived.unlockWithDevice(PRF);
+
+      expect((await revived.getStatus()).locked).toBe(false);
+      expect((await revived.getData()).entries[0].title).toBe('Kept');
+    });
+
+    it('reports back what was actually stored, not what the UI hoped', async () => {
+      // The settings page showed "Enabled" from a local flag, so a failed
+      // enrolment still looked like it had worked until the next reload.
+      await vault.enableDeviceUnlock(PRF, CREDENTIAL, 'example.com');
+      expect(await afterWorkerRestart().getDeviceUnlock()).toEqual({
+        enabled: true,
+        credentialId: CREDENTIAL,
+        rpId: 'example.com',
+      });
+    });
+
+    it('refuses to enrol while locked', async () => {
+      await vault.lock();
+      await expect(vault.enableDeviceUnlock(PRF, CREDENTIAL, 'example.com')).rejects.toThrow(
+        VaultLockedError,
+      );
+    });
+
+    it('rejects a different device secret', async () => {
+      await vault.enableDeviceUnlock(PRF, CREDENTIAL, 'example.com');
+      await vault.lock();
+      await expect(vault.unlockWithDevice(new Uint8Array(32).fill(9))).rejects.toThrow();
+      expect((await vault.getStatus()).locked).toBe(true);
+    });
+
+    it('forgets the wrapped key when the master password changes', async () => {
+      // The wrapped copy is of the old key and would no longer open the
+      // vault. A device unlock that silently fails is worse than one the
+      // user has to turn on again.
+      await vault.enableDeviceUnlock(PRF, CREDENTIAL, 'example.com');
+      await vault.changeMasterPassword(MASTER, 'a-brand-new-master-password');
+
+      expect((await vault.getDeviceUnlock()).enabled).toBe(false);
+      await vault.lock();
+      await expect(vault.unlockWithDevice(PRF)).rejects.toThrow(/not set up/i);
+    });
+
+    it('turns off on request', async () => {
+      await vault.enableDeviceUnlock(PRF, CREDENTIAL, 'example.com');
+      await expect(vault.disableDeviceUnlock()).resolves.toEqual({ enabled: false });
+      expect((await vault.getDeviceUnlock()).enabled).toBe(false);
+    });
+  });
 });

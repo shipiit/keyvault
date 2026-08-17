@@ -1,0 +1,207 @@
+import { ItemAvatar, Icon } from './primitives.jsx';
+import { Button } from '../components/Button.jsx';
+
+/**
+ * Watchtower — the security score, opened up.
+ *
+ * The score in the sidebar is a summary, and a summary the user cannot act on
+ * is decoration. Every point the score deducts comes from a specific entry,
+ * so this lists them: grouped by what is wrong, each one a button that opens
+ * the item so it can be fixed on the spot.
+ *
+ * Nothing here recomputes anything. It renders the `issues` the score already
+ * produced, so the number in the sidebar and the list here can never disagree.
+ */
+
+/** Ordered worst-first, matching the score's own weighting. */
+const KINDS = [
+  {
+    kind: 'breached',
+    title: 'Found in a breach',
+    body: 'These appeared in a public breach. Change them first, and anywhere else you used the same password.',
+    tone: 'var(--color-danger)',
+  },
+  {
+    kind: 'reused',
+    title: 'Used more than once',
+    body: 'One site being breached exposes every account sharing the password. Give each its own.',
+    tone: 'var(--color-danger)',
+  },
+  {
+    kind: 'weak',
+    title: 'Easy to guess',
+    body: 'Short or predictable enough to fall to an offline guessing attack.',
+    tone: 'var(--color-warn)',
+  },
+  {
+    kind: 'old',
+    title: 'Unchanged for over a year',
+    body: 'Not urgent on its own. Worth doing for anything that matters.',
+    tone: 'var(--color-fg-muted)',
+  },
+];
+
+export function WatchtowerView({ score, entries, onOpenEntry, onOpenSettings }) {
+  if (score === null) {
+    return (
+      <Pane>
+        <p className="text-sm text-[var(--color-fg-muted)]">Checking…</p>
+      </Pane>
+    );
+  }
+
+  const byId = new Map((entries ?? []).map((entry) => [entry.id, entry]));
+  const groups = KINDS.map((kind) => ({
+    ...kind,
+    issues: score.issues.filter((issue) => issue.problems.includes(kind.kind)),
+  })).filter((group) => group.issues.length > 0);
+
+  const tone =
+    score.score >= 90
+      ? 'var(--color-success)'
+      : score.score >= 75
+        ? 'var(--color-accent)'
+        : score.score >= 50
+          ? 'var(--color-warn)'
+          : 'var(--color-danger)';
+
+  return (
+    <Pane>
+      <div className="mb-6 rounded-[var(--radius-card)] border border-[var(--color-border)] p-5">
+        <div className="flex items-baseline justify-between gap-4">
+          <span className="text-sm font-semibold" style={{ color: tone }}>
+            {score.label}
+          </span>
+          <span className="tabular text-2xl font-bold" style={{ color: tone }}>
+            {score.score}%
+          </span>
+        </div>
+        <div
+          role="progressbar"
+          aria-valuenow={score.score}
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-label={`Security score ${score.score} out of 100, ${score.label}`}
+          className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--color-border)]"
+        >
+          <div
+            className="h-full rounded-full transition-[width] duration-[var(--dur-200)] ease-[var(--ease-out-quint)]"
+            style={{ width: `${score.score}%`, backgroundColor: tone }}
+          />
+        </div>
+        <p className="mt-3 text-xs text-[var(--color-fg-muted)]">
+          {score.checked} {score.checked === 1 ? 'password' : 'passwords'} checked, on this device.
+          Nothing about your vault is sent anywhere to produce this.
+        </p>
+
+        {/* Without this the score reads as a complete check when the most
+            serious category was never actually examined. */}
+        {!score.breachDataAvailable && score.checked > 0 && (
+          <div className="mt-4 flex items-start gap-3 rounded-[var(--radius-field)] bg-[var(--color-field)] p-3">
+            <Icon.Shield className="mt-0.5 size-4 shrink-0 text-[var(--color-warn)]" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold">Breach checking is off</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-[var(--color-fg-muted)]">
+                Nothing here can tell you whether a password has already leaked. The check sends
+                only the first five characters of a hash — never a password.
+              </p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={onOpenSettings}>
+              Turn on
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {groups.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <div className="grid size-11 place-items-center rounded-full bg-[var(--color-success)]/10">
+            <Icon.Shield className="size-5 text-[var(--color-success)]" />
+          </div>
+          <h2 className="text-sm font-semibold">
+            {score.checked === 0 ? 'Nothing to check yet' : 'No problems found'}
+          </h2>
+          <p className="max-w-[40ch] text-xs leading-relaxed text-[var(--color-fg-muted)]">
+            {score.checked === 0
+              ? 'Save a login and it will be checked here.'
+              : 'Every saved password is unique, strong, and recently set.'}
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {groups.map((group) => (
+            <section key={group.kind}>
+              <h2 className="text-sm font-semibold" style={{ color: group.tone }}>
+                {group.title}
+                <span className="ml-2 tabular text-xs font-normal text-[var(--color-fg-muted)]">
+                  {group.issues.length}
+                </span>
+              </h2>
+              <p className="mb-3 mt-0.5 max-w-[60ch] text-xs leading-relaxed text-[var(--color-fg-muted)]">
+                {group.body}
+              </p>
+              <ul className="flex flex-col gap-1">
+                {group.issues.map((issue) => (
+                  <li key={issue.id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenEntry(issue.id)}
+                      className={[
+                        'flex w-full items-center gap-3 rounded-[var(--radius-card)] px-4 py-3 text-left',
+                        'border border-[var(--color-border)]',
+                        'transition-colors duration-[var(--dur-150)]',
+                        'hover:border-[var(--color-border-strong)] hover:bg-[var(--color-field)]',
+                        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                        'focus-visible:outline-[var(--color-ring)]',
+                      ].join(' ')}
+                    >
+                      <ItemAvatar title={issue.title} size="sm" />
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-sm font-medium">{issue.title}</span>
+                        <span className="truncate text-xs text-[var(--color-fg-muted)]">
+                          {byId.get(issue.id)?.username || 'No username'}
+                        </span>
+                      </span>
+                      {/* An entry can be wrong in more than one way, and the
+                          other reasons are the argument for fixing it now. */}
+                      {issue.problems.length > 1 && (
+                        <span className="hidden shrink-0 gap-1 sm:flex">
+                          {issue.problems
+                            .filter((problem) => problem !== group.kind)
+                            .map((problem) => (
+                              <span
+                                key={problem}
+                                className="rounded-full bg-[var(--color-field)] px-2 py-0.5 text-[11px] text-[var(--color-fg-muted)]"
+                              >
+                                also {problem}
+                              </span>
+                            ))}
+                        </span>
+                      )}
+                      <Icon.Chevron className="size-4 shrink-0 -rotate-90 text-[var(--color-fg-subtle)]" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+    </Pane>
+  );
+}
+
+function Pane({ children }) {
+  return (
+    <section
+      aria-label="Watchtower"
+      className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-panel)] px-8 py-6"
+    >
+      <h1 className="text-2xl font-semibold tracking-tight">Watchtower</h1>
+      <p className="mb-6 mt-1 text-sm text-[var(--color-fg-muted)]">
+        Every problem behind your score, and the item that causes it.
+      </p>
+      {children}
+    </section>
+  );
+}
