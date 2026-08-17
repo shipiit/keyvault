@@ -83,13 +83,24 @@ test('the vault survives a service worker restart', async ({ context, vaultPage 
   await vaultPage.getByRole('button', { name: /^save/i }).click();
   await expect(vaultPage.getByText('Persisted').first()).toBeVisible();
 
-  for (const worker of context.serviceWorkers()) {
-    await worker.evaluate(() => {
-      // Closest available to Chrome's own idle termination.
-      self.registration.update();
-    });
-  }
+  // Nudging the worker is best-effort and deliberately allowed to fail.
+  // There is no supported way to force Chrome to terminate a service worker
+  // from a test, and `registration.update()` rejects outright if the worker
+  // is already being torn down — which is a race, and it lost on CI while
+  // passing every time locally. The nudge is not what this test is about.
+  await Promise.all(
+    context.serviceWorkers().map((worker) =>
+      worker
+        .evaluate(() => self.registration.update())
+        .catch(() => {
+          // Already gone, or going. Either way the next line is the point.
+        }),
+    ),
+  );
 
+  // This is the assertion that matters, and it holds whether the worker was
+  // replaced, terminated, or left alone: the vault is rebuilt from storage
+  // and the entry is still there.
   await vaultPage.reload();
   await expect(vaultPage.getByText('Persisted').first()).toBeVisible();
 });

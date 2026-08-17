@@ -3,6 +3,14 @@
 </p>
 
 <p align="center">
+  <strong><a href="https://shipiit.github.io/keyvault/">keyvault website</a></strong>
+  &nbsp;&middot;&nbsp;
+  <a href="https://github.com/shipiit/keyvault/releases/latest">Download</a>
+  &nbsp;&middot;&nbsp;
+  <a href="INSTALL.md">Install guide</a>
+</p>
+
+<p align="center">
   <a href="https://github.com/shipiit/keyvault/actions/workflows/ci.yml"><img src="https://github.com/shipiit/keyvault/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <img src="https://img.shields.io/badge/tests-697%20passing-success" alt="697 tests passing">
   <img src="https://img.shields.io/badge/coverage-97%25-success" alt="97% coverage">
