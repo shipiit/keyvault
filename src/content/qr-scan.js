@@ -11,10 +11,14 @@
  *  2. **Decode the image.** If no URI is written down, try the browser's
  *     native `BarcodeDetector` on any QR-shaped image on the page.
  *
- * Strategy 2 is not available everywhere — `BarcodeDetector` is absent on
- * several desktop platforms — so its absence is reported rather than
- * pretended away. The result always says which strategy found the secret, so
- * the UI can tell the user what to do when neither works.
+ *  3. **Hand the pixels out.** `BarcodeDetector` is absent on several
+ *     desktop platforms. Rather than inject a 250KB decoder into every page
+ *     the user visits, the QR images are rasterised here and returned as
+ *     data URLs for the extension's own page to decode. The decoder is
+ *     needed once, in one place, not on every page load.
+ *
+ * The result always says which strategy found the secret, so the UI can tell
+ * the user what actually happened when none of them work.
  */
 
 /** A full otpauth URI anywhere in a block of text. */
@@ -141,6 +145,92 @@ export async function decodeQrOnPage(doc) {
 }
 
 /**
+ * Rasterise an element to a PNG data URL.
+ *
+ * Returns null rather than throwing for the two normal failures: a
+ * cross-origin image taints the canvas so its pixels cannot be read back,
+ * and an element that has not finished decoding has nothing to draw.
+ *
+ * @param {Element} element
+ * @returns {Promise<string|null>}
+ */
+async function rasterise(element) {
+  try {
+    if (element.tagName === 'CANVAS') {
+      return element.toDataURL('image/png');
+    }
+
+    const source = await asImage(element);
+    if (source === null) {
+      return null;
+    }
+
+    const canvas = document.createElement('canvas');
+    // Cap the size: a QR code needs only a few hundred pixels to decode, and
+    // the result crosses a message boundary.
+    const scale = Math.min(1, 512 / Math.max(source.width, source.height, 1));
+    canvas.width = Math.max(1, Math.round(source.width * scale));
+    canvas.height = Math.max(1, Math.round(source.height * scale));
+
+    const context = canvas.getContext('2d');
+    // QR codes are black on white; a transparent PNG drawn onto nothing
+    // decodes as a solid block.
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+
+    return canvas.toDataURL('image/png');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get something drawable from an element.
+ *
+ * SVG is serialised and reloaded as an image: it cannot be drawn to a canvas
+ * directly, and inline SVG is a common way to render a QR code.
+ *
+ * @param {Element} element
+ * @returns {Promise<HTMLImageElement|null>}
+ */
+function asImage(element) {
+  if (element.tagName === 'IMG') {
+    return Promise.resolve(element.complete && element.naturalWidth > 0 ? element : null);
+  }
+  if (element.tagName !== 'svg') {
+    return Promise.resolve(null);
+  }
+
+  const markup = new XMLSerializer().serializeToString(element);
+  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = url;
+  });
+}
+
+/**
+ * Rasterise every plausible QR code on the page.
+ *
+ * @param {Document} doc
+ * @returns {Promise<string[]>} PNG data URLs
+ */
+export async function captureQrImages(doc) {
+  const captured = [];
+  // Bounded: a handful is plenty, and each one costs a message payload.
+  for (const element of qrCandidates(doc).slice(0, 4)) {
+    const dataUrl = await rasterise(element);
+    if (dataUrl !== null) {
+      captured.push(dataUrl);
+    }
+  }
+  return captured;
+}
+
+/**
  * Look for a TOTP secret on this page, cheapest strategy first.
  *
  * @param {Document} [doc]
@@ -163,11 +253,15 @@ export async function scanPageForTotp(doc = document) {
     return { found: true, ...bare };
   }
 
+  // Nothing readable here. Hand back the QR images so the extension's own
+  // page can decode them, rather than shipping a decoder into every page.
+  const images = await captureQrImages(doc);
   return {
     found: false,
-    reason: canDecodeImages()
-      ? 'No two-factor setup code found on this page. Open the page showing the QR code and try again.'
-      : 'No setup code found in the page text, and this browser cannot read QR images. ' +
-        'Copy the setup key shown next to the QR code and paste it instead.',
+    images,
+    reason:
+      images.length === 0
+        ? 'No two-factor setup code or QR image found on this page.'
+        : 'Found a QR image but could not read it here.',
   };
 }

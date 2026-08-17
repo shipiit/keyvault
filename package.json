@@ -33,6 +33,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "jsqr": "^1.4.0",
     "preact": "^10.29.8"
   }
 }

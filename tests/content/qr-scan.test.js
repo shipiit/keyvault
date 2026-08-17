@@ -213,12 +213,33 @@ describe('scanPageForTotp', () => {
     expect((await scanPageForTotp(document)).found).toBe(false);
   });
 
-  it('says so when the browser cannot read QR images at all', async () => {
-    // Reporting the limitation beats silently finding nothing and letting
-    // the user conclude the feature is broken.
-    document.body.innerHTML = '<img width="200" height="200">';
+  it('hands the QR images out for the extension page to decode', async () => {
+    // The decoder is ~250KB and this script runs on every page the user
+    // visits, so the pixels go to the extension's own page instead.
+    globalThis.HTMLCanvasElement.prototype.toDataURL = () => 'data:image/png;base64,AAAA';
+    globalThis.HTMLCanvasElement.prototype.getContext = () => ({
+      drawImage: () => {},
+      fillRect: () => {},
+    });
+    const image = document.createElement('img');
+    image.width = 200;
+    image.height = 200;
+    Object.defineProperty(image, 'complete', { value: true });
+    Object.defineProperty(image, 'naturalWidth', { value: 200 });
+    document.body.append(image);
+
+    const result = await scanPageForTotp(document);
+
+    expect(result.found).toBe(false);
+    expect(result.images).toEqual(['data:image/png;base64,AAAA']);
+    expect(result.reason).toMatch(/could not read it here/i);
+  });
+
+  it('reports plainly when there is no QR image at all', async () => {
+    document.body.innerHTML = '<p>Nothing to see</p>';
     const result = await scanPageForTotp(document);
     expect(result.found).toBe(false);
-    expect(result.reason).toMatch(/cannot read QR images/i);
+    expect(result.images).toEqual([]);
+    expect(result.reason).toMatch(/no two-factor setup code or QR image/i);
   });
 });

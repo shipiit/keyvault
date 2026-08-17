@@ -9,6 +9,8 @@
 
 import { isDevEnvironment, handleDevMessage, devActiveTabUrl } from './dev-mock.js';
 
+import { findTotpInImages } from './qr-decode.js';
+
 const api = globalThis.chrome ?? globalThis.browser;
 
 /**
@@ -139,6 +141,11 @@ export async function scanOpenTabsForTotp() {
   const ordered = [...tabs].sort((a, b) => Number(b.active) - Number(a.active));
 
   let reachable = 0;
+  // Images are collected across every tab and decoded only after the cheap
+  // strategies have all failed, so a page that simply prints the URI never
+  // pays for a decode.
+  const captured = [];
+
   for (const tab of ordered) {
     if (tab.id === undefined || (tab.url ?? '').startsWith(ownPrefix)) {
       continue;
@@ -149,10 +156,20 @@ export async function scanOpenTabsForTotp() {
       if (result?.found) {
         return { ...result, tabTitle: tab.title ?? '' };
       }
+      for (const dataUrl of result?.images ?? []) {
+        captured.push({ dataUrl, tabTitle: tab.title ?? '' });
+      }
     } catch {
       // No content script in this tab: a browser-internal page, or a tab
       // opened before the extension was installed or last reloaded.
       continue;
+    }
+  }
+
+  if (captured.length > 0) {
+    const decoded = await findTotpInImages(captured.map((item) => item.dataUrl));
+    if (decoded !== null) {
+      return { found: true, ...decoded, tabTitle: captured[0].tabTitle };
     }
   }
 
@@ -162,8 +179,12 @@ export async function scanOpenTabsForTotp() {
       reachable === 0
         ? 'KeyVault could not read any open tab. Open the page showing the QR code, reload ' +
           'that page, then try again.'
-        : `No two-factor setup code found in your ${reachable} open ` +
-          `${reachable === 1 ? 'tab' : 'tabs'}. Open the page showing the QR code and try again.`,
+        : captured.length > 0
+          ? `Found ${captured.length} QR ${captured.length === 1 ? 'image' : 'images'} but ` +
+            'none held a two-factor setup code. If the code is inside an image from another ' +
+            'site, KeyVault cannot read its pixels — use the setup key instead.'
+          : `No two-factor setup code found in your ${reachable} open ` +
+            `${reachable === 1 ? 'tab' : 'tabs'}. Open the page showing the QR code and try again.`,
   };
 }
 

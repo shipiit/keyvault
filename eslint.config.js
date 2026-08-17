@@ -64,6 +64,10 @@ export default [
         Event: 'readonly',
         HTMLInputElement: 'readonly',
         MutationObserver: 'readonly',
+        XMLSerializer: 'readonly',
+        Image: 'readonly',
+        ImageData: 'readonly',
+        queueMicrotask: 'readonly',
         CSS: 'readonly',
         Promise: 'readonly',
       },
@@ -77,9 +81,15 @@ export default [
     },
   },
   {
-    // Content-script tests run under jsdom.
-    files: ['tests/content/**/*.js'],
+    // Component and content-script tests run under jsdom.
+    files: ['tests/content/**/*.js', 'tests/ui/**/*.{js,jsx}'],
+    plugins: { react },
+    rules: {
+      // Components rendered only inside JSX are otherwise reported unused.
+      'react/jsx-uses-vars': 'error',
+    },
     languageOptions: {
+      parserOptions: { ecmaFeatures: { jsx: true } },
       globals: {
         document: 'readonly',
         window: 'readonly',
@@ -89,6 +99,10 @@ export default [
         Event: 'readonly',
         KeyboardEvent: 'readonly',
         DOMParser: 'readonly',
+        Image: 'readonly',
+        queueMicrotask: 'readonly',
+        Uint8ClampedArray: 'readonly',
+        HTMLCanvasElement: 'readonly',
         CSS: 'readonly',
       },
     },
