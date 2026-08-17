@@ -191,6 +191,89 @@ function stashBeforeUnload() {
   pendingSubmission = null;
 }
 
+/** Forms already filled, so a re-render does not refill over the user. */
+const filledForms = new WeakSet();
+
+/**
+ * Fill a matching login as the page loads.
+ *
+ * This is what "autofill" means, and its absence was the difference between
+ * a password manager and a password list.
+ *
+ * Deliberately conservative about when it runs: only a login form, only
+ * when the field is still empty, and only once per form. Overwriting
+ * something the user typed — or refilling after they cleared a field to
+ * type a different account — is worse than not filling at all.
+ */
+async function autofillOnLoad() {
+  const targets = detectLoginForms(document).filter((target) => target.kind === 'login');
+  const target = targets.find((candidate) => {
+    const anchor = candidate.password ?? candidate.username;
+    if (anchor === null || anchor === undefined || filledForms.has(anchor)) {
+      return false;
+    }
+    // Never type over something already there — the site may have restored
+    // a value, or the user may have started typing.
+    return (candidate.password?.value ?? '') === '' && (candidate.username?.value ?? '') === '';
+  });
+
+  if (target === undefined) {
+    return;
+  }
+
+  let result;
+  try {
+    result = await send('credentials/autofill', { url: window.location.href });
+  } catch {
+    // Locked vault, or the worker is asleep. The popup still works.
+    return;
+  }
+  if (result.fill === null) {
+    return;
+  }
+
+  const anchor = target.password ?? target.username;
+  filledForms.add(anchor);
+
+  const filled = fillCredential(target, result.fill);
+  if (filled.filledPassword && result.fill.autoSubmit === true) {
+    submitForm(target);
+  }
+}
+
+/**
+ * Watch for a login form that appears after the initial load.
+ *
+ * Single-page apps mount the form well after DOMContentLoaded, and a
+ * one-shot attempt on load simply misses them.
+ *
+ * @returns {() => void} stop watching
+ */
+function watchForLoginForms() {
+  let scheduled = false;
+  const attempt = () => {
+    if (scheduled) {
+      return;
+    }
+    scheduled = true;
+    // Debounced: a mounting app mutates the DOM hundreds of times, and
+    // detection walks every input each call.
+    setTimeout(() => {
+      scheduled = false;
+      autofillOnLoad();
+    }, 300);
+  };
+
+  const observer = new MutationObserver(attempt);
+  observer.observe(document.documentElement, { subtree: true, childList: true });
+  attempt();
+
+  // Give up watching after a while: a page with a busy ticker would
+  // otherwise keep re-running detection for as long as it stays open.
+  setTimeout(() => observer.disconnect(), 20000);
+  return () => observer.disconnect();
+}
+
 /** On load, collect anything stashed by the page that navigated here. */
 async function collectStashed() {
   try {
@@ -261,6 +344,7 @@ function start() {
   });
 
   collectStashed();
+  watchForLoginForms();
 }
 
 start();

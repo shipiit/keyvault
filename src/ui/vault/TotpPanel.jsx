@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
-import { CopyButton, FieldRow, Icon } from './primitives.jsx';
-import { getTotp, copyWithAutoClear } from '../lib/messaging.js';
+import { CopyButton, FieldRow, IconButton, Icon } from './primitives.jsx';
+import { getTotp, copyWithAutoClear, updateEntryRemote } from '../lib/messaging.js';
 import { subscribeToSeconds } from '../lib/ticker.js';
+import { Button } from '../components/Button.jsx';
 
 /**
  * The large two-factor code in the detail pane.
@@ -10,8 +11,9 @@ import { subscribeToSeconds } from '../lib/ticker.js';
  * tick — the TOTP secret never enters a UI context, so the page only ever
  * holds the six digits currently displayed.
  */
-export function TotpPanel({ entryId, period = 30 }) {
+export function TotpPanel({ entryId, period = 30, secret = null, onChanged }) {
   const [state, setState] = useState({ status: 'loading', code: '', remaining: period });
+  const [showSecret, setShowSecret] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -63,10 +65,21 @@ export function TotpPanel({ entryId, period = 30 }) {
       icon={<Icon.Shield className="size-[18px]" />}
       label="Two-factor code"
       actions={
-        <CopyButton
-          label="Copy two-factor code"
-          getValue={() => copyWithAutoClear(state.code, 30000)}
-        />
+        <>
+          {secret !== null && (
+            <IconButton
+              label={showSecret ? 'Hide the setup key' : 'Show the setup key'}
+              aria-pressed={showSecret}
+              onClick={() => setShowSecret(!showSecret)}
+            >
+              {showSecret ? <Icon.EyeOff /> : <Icon.Eye />}
+            </IconButton>
+          )}
+          <CopyButton
+            label="Copy two-factor code"
+            getValue={() => copyWithAutoClear(state.code, 30000)}
+          />
+        </>
       }
     >
       <div className="flex items-center gap-3">
@@ -82,6 +95,30 @@ export function TotpPanel({ entryId, period = 30 }) {
         </span>
         <Countdown remaining={state.remaining} period={period} urgent={expiring} />
       </div>
+
+      {/* Shown on request so the stored key can be compared against the one
+          the site is displaying. Without this, a wrong key is invisible —
+          the entry looks correct and produces six digits that are simply
+          never accepted. */}
+      {showSecret && secret !== null && (
+        <div className="mt-2 flex flex-col gap-2">
+          <p className="break-all font-mono text-xs text-[var(--color-fg-muted)]">{secret}</p>
+          <p className="text-xs leading-relaxed text-[var(--color-fg-subtle)]">
+            Compare this with the setup key on the site. If they differ, the wrong key was stored
+            and the codes will never be accepted.
+          </p>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={async () => {
+              await updateEntryRemote(entryId, { totpUri: '' });
+              onChanged?.();
+            }}
+          >
+            Remove this key
+          </Button>
+        </div>
+      )}
     </FieldRow>
   );
 }

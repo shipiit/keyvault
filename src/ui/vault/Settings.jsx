@@ -98,6 +98,20 @@ export function Settings({ onChanged }) {
         </Row>
 
         <Row
+          label="Fill logins automatically"
+          hint={
+            'Fills a saved login as the page loads, when exactly one matches. Submitting stays ' +
+            'a separate, per-item choice.'
+          }
+        >
+          <Toggle
+            checked={settings.autofillOnLoad !== false}
+            label="Fill logins automatically"
+            onChange={(next) => update({ autofillOnLoad: next })}
+          />
+        </Row>
+
+        <Row
           label="Clear the clipboard after"
           hint="Anything you copy is wiped after this long, so a password does not sit there."
         >

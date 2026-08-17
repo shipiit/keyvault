@@ -1,6 +1,9 @@
 /** Settings applied to a freshly created vault. */
 export const DEFAULT_SETTINGS = Object.freeze({
   autoLockMinutes: 15,
+  // Fill a matching login as the page loads. On by default because that is
+  // what "autofill" means; submitting is still per entry and still off.
+  autofillOnLoad: true,
   lockOnBrowserClose: true,
   clipboardClearSeconds: 30,
   theme: 'system',

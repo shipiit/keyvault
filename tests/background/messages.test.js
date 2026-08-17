@@ -196,6 +196,82 @@ describe('message router', () => {
     });
   });
 
+  describe('credentials/autofill', () => {
+    const ask = (url = 'https://github.com/login', sender = PAGE) =>
+      router.handle({ type: 'credentials/autofill', payload: { url } }, sender);
+
+    it('returns the one matching credential', async () => {
+      await addGithubEntry();
+      const res = await ask();
+
+      expect(res.data.fill.username).toBe('rahul@example.com');
+      expect(res.data.fill.password).toBe('S3cr3t!');
+    });
+
+    it('refuses when more than one account matches', async () => {
+      // Silently choosing one puts the wrong username in front of the user,
+      // or quietly changes which account they are about to log into.
+      await addGithubEntry();
+      await addGithubEntry({ username: 'second@example.com' });
+
+      const res = await ask();
+      expect(res.data.fill).toBeNull();
+      expect(res.data.reason).toMatch(/more than one/);
+    });
+
+    it('returns nothing for a site with no saved login', async () => {
+      await addGithubEntry();
+      expect((await ask('https://elsewhere.example')).data.fill).toBeNull();
+    });
+
+    it('refuses a non-web origin', async () => {
+      await addGithubEntry();
+      expect((await ask('javascript:alert(1)')).data.fill).toBeNull();
+    });
+
+    it('respects the setting being turned off', async () => {
+      await addGithubEntry();
+      await send('settings/update', { changes: { autofillOnLoad: false } });
+
+      const res = await ask();
+      expect(res.data.fill).toBeNull();
+      expect(res.data.reason).toMatch(/turned off/);
+    });
+
+    it('reports autoSubmit but never decides it here', async () => {
+      // Filling and submitting stay separate: this only relays what the
+      // entry opted into.
+      await addGithubEntry();
+      expect((await ask()).data.fill.autoSubmit).toBe(false);
+
+      await send('vault/lock');
+      await send('vault/unlock', { password: MASTER });
+      await addGithubEntry({ autoSubmit: true, username: 'only@example.com' });
+    });
+
+    it('refuses while the vault is locked', async () => {
+      await addGithubEntry();
+      await send('vault/lock');
+
+      const res = await ask();
+      expect(res.ok).toBe(false);
+      expect(res.error.name).toBe('VaultLockedError');
+    });
+
+    it('does not leak anything when it declines', async () => {
+      await addGithubEntry();
+      await addGithubEntry({ username: 'second@example.com' });
+
+      expect(JSON.stringify(await ask())).not.toContain('S3cr3t!');
+    });
+
+    it('records the entry as used, so the popup ranks it first', async () => {
+      const id = await addGithubEntry();
+      await ask();
+      expect((await send('entries/get', { id })).data.entry.lastUsedAt).toBe(NOW);
+    });
+  });
+
   describe('credentials/save', () => {
     const save = (payload, sender = PAGE) =>
       router.handle({ type: 'credentials/save', payload }, sender);

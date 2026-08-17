@@ -304,7 +304,12 @@ function DetailsTab({ entry, revealed, onToggleReveal, onChanged }) {
       </FieldRow>
 
       {entry.totp !== null && entry.totp !== undefined ? (
-        <TotpPanel entryId={entry.id} period={entry.totp.period} />
+        <TotpPanel
+          entryId={entry.id}
+          period={entry.totp.period}
+          secret={entry.totp.secret}
+          onChanged={onChanged}
+        />
       ) : (
         <TotpSetupCard entryId={entry.id} onAdded={onChanged} />
       )}

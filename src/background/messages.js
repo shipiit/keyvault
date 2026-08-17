@@ -552,6 +552,58 @@ export function createMessageRouter({
       },
     },
 
+    'credentials/autofill': {
+      contentScript: true,
+      /**
+       * The credential to fill on page load, if there is exactly one.
+       *
+       * The policy lives here rather than in the content script: whether
+       * autofill runs at all, and whether the match is unambiguous, are
+       * decisions a page must not be able to influence.
+       *
+       * Only an unambiguous match fills. With two saved accounts for a site
+       * there is no way to know which the user wants, and silently choosing
+       * one puts the wrong username in front of them — or worse, quietly
+       * changes which account they are about to log into.
+       */
+      handle: async ({ url }) => {
+        if (toHostname(url) === null) {
+          return { fill: null, reason: 'not a web page' };
+        }
+
+        const data = await vault.getData();
+        if (data.settings?.autofillOnLoad === false) {
+          return { fill: null, reason: 'turned off' };
+        }
+
+        const matches = entriesForUrl(data.entries, url);
+        if (matches.length !== 1) {
+          return { fill: null, reason: matches.length === 0 ? 'no match' : 'more than one match' };
+        }
+
+        const entry = matches[0];
+        if (typeof entry.password !== 'string' || entry.password === '') {
+          return { fill: null, reason: 'no password saved' };
+        }
+
+        await vault.mutate((current) =>
+          replaceEntry(current, { ...findEntry(current, entry.id), lastUsedAt: now() }),
+        );
+        await autoLock.touch();
+
+        return {
+          fill: {
+            id: entry.id,
+            username: entry.username,
+            password: entry.password,
+            // Filling and submitting stay separate decisions. Auto-submit
+            // is per entry and off unless the user turned it on.
+            autoSubmit: entry.autoSubmit === true,
+          },
+        };
+      },
+    },
+
     'credentials/save': {
       contentScript: true,
       /**
