@@ -86,6 +86,25 @@ export default [
     },
   },
   {
+    // End-to-end specs run in Node (Playwright's runner) but contain small
+    // functions that are serialised and evaluated inside the browser, so both
+    // sets of globals are legitimate in one file.
+    files: ['tests/e2e/**/*.js', 'playwright.config.js'],
+    rules: {
+      // `async ({}, use) => …` is Playwright's own fixture signature.
+      'no-empty-pattern': 'off',
+    },
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        document: 'readonly',
+        window: 'readonly',
+        self: 'readonly',
+      },
+    },
+  },
+  {
     // Component and content-script tests run under jsdom.
     files: ['tests/content/**/*.js', 'tests/ui/**/*.{js,jsx}'],
     plugins: { react },

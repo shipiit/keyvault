@@ -94,21 +94,33 @@ function toSummary(entry) {
 }
 
 /**
- * Whether a message came from a privileged extension page (popup, options)
- * rather than a content script running inside a web page.
+ * Whether a message came from a privileged extension page (popup, vault page,
+ * settings) rather than a content script running inside a web page.
  *
- * A content script always carries `sender.tab`. Extension pages do not, and
- * their URL is on the extension's own origin. Both conditions are required:
- * either alone is weaker than it looks.
+ * The test is the sender's origin, and only that. A content script's
+ * `sender.url` is the page it was injected into — `https://evil.com/` — so it
+ * can never match the extension's own origin, and the origin cannot be
+ * forged: Chrome fills it in, not the sender.
+ *
+ * This deliberately no longer rejects any sender carrying `sender.tab`.
+ * That check looked like a free second layer and was in fact a bug: an
+ * extension page opened in a tab — which is exactly what `vault.html` is —
+ * carries `sender.tab` too. The result was that the full vault page could not
+ * call a single trusted handler and rendered nothing but "vault/status may
+ * only be called from an extension page". Only the popup worked, because a
+ * popup is the one extension surface with no tab.
+ *
+ * Dropping it costs nothing, because it was never what kept content scripts
+ * out: the origin check already does that, for every content script, in every
+ * tab. And no web page can host one of these pages to borrow its origin —
+ * `web_accessible_resources` is empty, so nothing here can be framed or
+ * navigated to from the web at all.
  *
  * @param {object} sender
  * @param {object} chrome
  */
 function isTrustedSender(sender, chrome) {
   if (sender === null || typeof sender !== 'object') {
-    return false;
-  }
-  if (sender.tab !== undefined && sender.tab !== null) {
     return false;
   }
   const expectedPrefix = `chrome-extension://${chrome.runtime.id}/`;

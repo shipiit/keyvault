@@ -8,3 +8,7 @@ coverage/
 docs/superpowers/
 dist/
 keyvault-*.zip
+
+# Playwright
+test-results/
+playwright-report/

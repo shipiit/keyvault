@@ -35,3 +35,30 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm audit --audit-level=moderate
+
+  e2e:
+    # A real Chromium with the extension installed. Separate from `test`
+    # because it needs a browser download and a display server, and because a
+    # failure here means something different: the modules are fine and the
+    # extension is not.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      # Chrome refuses to load an extension in the old headless mode and says
+      # nothing about it, so xvfb keeps this honest on a headless runner.
+      - run: xvfb-run --auto-servernum npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

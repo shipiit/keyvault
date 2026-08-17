@@ -61,13 +61,31 @@ describe('message router', () => {
       }
     });
 
-    it('refuses a sender claiming the extension URL while owning a tab', async () => {
-      // A page cannot forge `sender`, but the check must not be satisfiable by
-      // URL alone if that ever changes.
-      const spoofed = { tab: { id: 9 }, url: 'chrome-extension://fake-extension-id/popup.html' };
-      const res = await router.handle({ type: 'entries/list', payload: {} }, spoofed);
-      expect(res.ok).toBe(false);
-      expect(res.error.name).toBe('NotAuthorizedError');
+    it('refuses a sender on another extension origin, tab or not', async () => {
+      // The origin is the whole test, and Chrome fills it in rather than the
+      // sender, so a different extension id cannot be talked around.
+      for (const spoofed of [
+        { tab: { id: 9 }, url: 'chrome-extension://a-different-extension/popup.html' },
+        { url: 'chrome-extension://a-different-extension/popup.html' },
+      ]) {
+        const res = await router.handle({ type: 'entries/list', payload: {} }, spoofed);
+        expect(res.ok).toBe(false);
+        expect(res.error.name).toBe('NotAuthorizedError');
+      }
+    });
+
+    it('allows the vault page, which is an extension page that owns a tab', async () => {
+      // The bug this pins, found by the end-to-end suite on its first real
+      // run: rejecting every sender with a `tab` also rejected `vault.html`,
+      // because a full-page extension surface is a tab. The whole vault page
+      // rendered nothing but the authorisation error. Only the popup worked,
+      // being the one surface without a tab.
+      const vaultPage = {
+        tab: { id: 11 },
+        url: `chrome-extension://${chrome.runtime.id}/ui/vault.html`,
+      };
+      const res = await router.handle({ type: 'vault/status', payload: {} }, vaultPage);
+      expect(res.ok, res.error?.message).toBe(true);
     });
 
     it('refuses a sender from another extension', async () => {

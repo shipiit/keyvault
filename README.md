@@ -45,21 +45,21 @@ vault.
 
 ## Features
 
-|                        |                                                                                                                |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Encrypted vault**    | AES-GCM-256 under a PBKDF2-derived key. Auto-locks on a timer and on browser close.                            |
-| **Autofill**           | Detects login forms and fills them, including React/Vue apps that ignore naive value assignment.               |
-| **Save prompt**        | Offers to save or update a credential after you log in.                                                        |
-| **Auto-login**         | Opt-in **per credential**, off by default. See [Security](#security).                                          |
-| **TOTP 2FA**           | Scan a QR code, upload a QR image, or paste an `otpauth://` URI. Live 6-digit codes with a countdown.          |
-| **Password generator** | Configurable length and character classes, built on a bias-free CSPRNG.                                        |
-| **Import / export**    | Encrypted backup files, plus importers for 1Password, Bitwarden, LastPass, and Chrome CSV.                     |
-| **Password strength**  | Offline, pattern-aware estimate with an honest time-to-crack figure.                                           |
-| **Breach check**       | Optional, off by default. Tells you if a password appears in public breach data, without sending the password. |
+|                        |                                                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Encrypted vault**    | AES-GCM-256 under a PBKDF2-derived key. Auto-locks on a timer and on browser close.                                 |
+| **Autofill**           | Detects login forms and fills them, including React/Vue apps that ignore naive value assignment.                    |
+| **Save prompt**        | Offers to save or update a credential after you log in.                                                             |
+| **Auto-login**         | Opt-in **per credential**, off by default. See [Security](#security).                                               |
+| **TOTP 2FA**           | Scan a QR code, upload a QR image, or paste an `otpauth://` URI. Live 6-digit codes with a countdown.               |
+| **Password generator** | Configurable length and character classes, built on a bias-free CSPRNG.                                             |
+| **Import / export**    | Encrypted backup files, plus importers for 1Password, Bitwarden, LastPass, and Chrome CSV.                          |
+| **Password strength**  | Offline, pattern-aware estimate with an honest time-to-crack figure.                                                |
+| **Breach check**       | Optional, off by default. Tells you if a password appears in public breach data, without sending the password.      |
 | **In-field badge**     | A KeyVault mark inside the login box; click for your matching logins, in a closed shadow root the page cannot read. |
-| **Watchtower**         | Every weak, reused, breached or stale password, grouped by problem, each one a click from the item that causes it. |
-| **Trash with undo**    | Deleting is reversible. Nothing is purged on a timer, because no server holds a second copy. |
-| **Touch ID unlock**    | WebAuthn PRF wraps the vault key to your device. Prompts on its own; the master password always still works. |
+| **Watchtower**         | Every weak, reused, breached or stale password, grouped by problem, each one a click from the item that causes it.  |
+| **Trash with undo**    | Deleting is reversible. Nothing is purged on a timer, because no server holds a second copy.                        |
+| **Touch ID unlock**    | WebAuthn PRF wraps the vault key to your device. Prompts on its own; the master password always still works.        |
 
 ---
 
@@ -173,18 +173,18 @@ Full detail and vulnerability reporting: [`SECURITY.md`](SECURITY.md).
 The work is split into five stages, each of which produces something verifiable
 on its own.
 
-| Stage                   | Contents                                               | Status                                              |
-| ----------------------- | ------------------------------------------------------ | --------------------------------------------------- |
-| **1 — Core**            | Crypto, TOTP, vault data model, CI                     | ✅ **Complete**                                     |
-| **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging     | ✅ **Complete** — loadable in Chrome                |
-| **3 — UI**              | Design system, popup, vault page, settings, generator  | ✅ **Complete**                                     |
-| **4 — Web integration** | Autofill, save prompt, auto-login, 2FA, backup, import | ✅ **Complete**                                     |
-| **5 — Daily use**       | In-field badge, Watchtower, trash, Touch ID unlock     | ✅ **Complete**                                     |
+| Stage                   | Contents                                               | Status                               |
+| ----------------------- | ------------------------------------------------------ | ------------------------------------ |
+| **1 — Core**            | Crypto, TOTP, vault data model, CI                     | ✅ **Complete**                      |
+| **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging     | ✅ **Complete** — loadable in Chrome |
+| **3 — UI**              | Design system, popup, vault page, settings, generator  | ✅ **Complete**                      |
+| **4 — Web integration** | Autofill, save prompt, auto-login, 2FA, backup, import | ✅ **Complete**                      |
+| **5 — Daily use**       | In-field badge, Watchtower, trash, Touch ID unlock     | ✅ **Complete**                      |
 
 **What this means today:** the extension is in daily use. It fills logins as
 pages load, shows a badge inside the field with your matching logins, offers to
 save what you type, reads two-factor setup codes from a QR image or the key
-printed beside it, fills *and submits* the verification page, unlocks with
+printed beside it, fills _and submits_ the verification page, unlocks with
 Touch ID, lists every weak or reused password in Watchtower, keeps deleted
 items in an undoable trash, generates passwords, and exports an encrypted
 backup.
@@ -196,7 +196,7 @@ backup.
   browser with the extension actually loaded. This is the real gap: every bug
   found in daily use so far has been of a kind the unit tests structurally
   could not catch.
-- **No sync.** One machine, one vault. Your export *is* your backup.
+- **No sync.** One machine, one vault. Your export _is_ your backup.
 - **Card and identity item types** store fields but have no dedicated editor.
 
 ---

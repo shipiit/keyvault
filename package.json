@@ -17,10 +17,13 @@
     "format:check": "prettier --check .",
     "build": "node scripts/build.js",
     "dev": "vite",
-    "package": "npm run build && node scripts/package.js"
+    "package": "npm run build && node scripts/package.js",
+    "test:e2e": "npm run build && playwright test",
+    "test:all": "npm run test && npm run test:e2e"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.62.1",
     "@preact/preset-vite": "^2.10.6",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/preact": "^3.2.4",
