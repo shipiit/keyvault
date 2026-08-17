@@ -4,6 +4,7 @@ import { Sidebar } from './vault/Sidebar.jsx';
 import { ItemList } from './vault/ItemList.jsx';
 import { ItemDetail } from './vault/ItemDetail.jsx';
 import { ItemDrawer } from './vault/ItemDrawer.jsx';
+import { Settings } from './vault/Settings.jsx';
 import { Unlock } from './screens/Unlock.jsx';
 import { Onboarding } from './screens/Onboarding.jsx';
 import { Icon } from './vault/primitives.jsx';
@@ -203,7 +204,10 @@ export function VaultApp({ compact = false }) {
         }}
         theme={theme === 'system' ? preferredTheme() : theme}
         onTheme={() => setTheme(currentIsDark() ? 'light' : 'dark')}
-        onSettings={() => setView('settings')}
+        onSettings={() => {
+          setView(view === 'settings' ? 'all' : 'settings');
+          setSelectedId(null);
+        }}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -225,28 +229,35 @@ export function VaultApp({ compact = false }) {
           }}
         />
 
-        <ItemList
-          compact={compact}
-          title={VIEW_TITLES[view] ?? 'Items'}
-          entries={visible}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onToggleFavorite={handleToggleFavorite}
-          loading={entries === null}
-        />
-
-        {/* At popup width the editor replaces the detail pane rather than
-            adding a fourth column, which would leave nothing legible. */}
-        {compact && drawer !== null ? null : selectedId === null ? (
-          <NoSelection compact={compact} />
+        {view === 'settings' ? (
+          <Settings onChanged={refreshEntries} />
         ) : (
-          <ItemDetail
-            compact={compact}
-            entryId={selectedId}
-            onEdit={(entry) => setDrawer({ entry })}
-            onChanged={refreshEntries}
-            onClose={() => setSelectedId(null)}
-          />
+          <>
+            <ItemList
+              compact={compact}
+              title={VIEW_TITLES[view] ?? 'Items'}
+              entries={visible}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onToggleFavorite={handleToggleFavorite}
+              loading={entries === null}
+            />
+
+            {/* At popup width the editor replaces the detail pane rather
+                than adding a fourth column, which would leave nothing
+                legible. */}
+            {compact && drawer !== null ? null : selectedId === null ? (
+              <NoSelection compact={compact} />
+            ) : (
+              <ItemDetail
+                compact={compact}
+                entryId={selectedId}
+                onEdit={(entry) => setDrawer({ entry })}
+                onChanged={refreshEntries}
+                onClose={() => setSelectedId(null)}
+              />
+            )}
+          </>
         )}
 
         {drawer !== null && (

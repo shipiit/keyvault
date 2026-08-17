@@ -149,6 +149,7 @@ describe('showSavePrompt', () => {
       title: 'GitHub',
       username: 'rahul',
       password: 'S3cr3t!',
+      totpUri: null,
     });
     expect(host()).toBeNull();
   });
@@ -184,6 +185,56 @@ describe('showSavePrompt', () => {
     clickBannerButton('secondary');
     expect((await choice).action).toBe('dismiss');
     expect(host()).toBeNull();
+  });
+
+  it('offers to capture a two-factor code found on the same page', async () => {
+    // A 2FA setup page shows the login and the QR together. Capturing both
+    // in one step is the difference between having two-factor set up and
+    // meaning to.
+    const uri = 'otpauth://totp/A?secret=JBSWY3DPEHPK3PXP';
+    const choice = showSavePrompt({
+      title: 'GitHub',
+      site: 'https://github.com',
+      username: 'rahul',
+      password: 'S3cr3t!',
+      isUpdate: false,
+      totpUri: uri,
+    });
+
+    expect(currentPrompt().totpCheckbox.checked).toBe(true);
+    clickBannerButton('primary');
+    expect((await choice).totpUri).toBe(uri);
+  });
+
+  it('lets the user decline the two-factor code but still save the password', async () => {
+    const choice = showSavePrompt({
+      title: 'GitHub',
+      site: 'https://github.com',
+      username: 'rahul',
+      password: 'S3cr3t!',
+      isUpdate: false,
+      totpUri: 'otpauth://totp/A?secret=JBSWY3DPEHPK3PXP',
+    });
+
+    currentPrompt().totpCheckbox.checked = false;
+    clickBannerButton('primary');
+
+    const result = await choice;
+    expect(result.totpUri).toBeNull();
+    expect(result.password).toBe('S3cr3t!');
+  });
+
+  it('shows no two-factor row when none was found', async () => {
+    const choice = showSavePrompt({
+      title: 'GitHub',
+      site: 'https://github.com',
+      username: 'rahul',
+      password: 'S3cr3t!',
+      isUpdate: false,
+    });
+    expect(currentPrompt().totpCheckbox).toBeNull();
+    clickBannerButton('secondary');
+    await choice;
   });
 
   it('masks the password until the user reveals it', async () => {

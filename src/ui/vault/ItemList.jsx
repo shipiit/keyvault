@@ -25,7 +25,10 @@ export function ItemList({
   compact = false,
 }) {
   const [sort, setSort] = useState('updated');
-  const [dense, setDense] = useState(false);
+  // Compact by default: the timestamp is context, not identity, and hiding
+  // it fits noticeably more items on screen. The toggle persists per device
+  // for anyone who wants it back.
+  const [dense, setDense] = useState(() => localStorage.getItem('keyvault.density') !== 'detailed');
 
   const sorted = [...entries].sort((a, b) => {
     if (sort === 'title') return a.title.localeCompare(b.title);
@@ -72,7 +75,12 @@ export function ItemList({
         <IconButton
           label={dense ? 'Show detailed rows' : 'Show compact rows'}
           aria-pressed={dense}
-          onClick={() => setDense((current) => !current)}
+          onClick={() =>
+            setDense((current) => {
+              localStorage.setItem('keyvault.density', current ? 'detailed' : 'compact');
+              return !current;
+            })
+          }
           className="size-8"
         >
           {dense ? <Icon.Grid /> : <Icon.List />}

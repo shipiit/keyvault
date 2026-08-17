@@ -198,7 +198,9 @@ export function ItemDetail({ entryId, onEdit, onClose, onChanged, compact = fals
             <Icon.Edit className="size-4" />
             {compact ? '' : 'Edit'}
           </Button>
-          <CopyButton label="Copy password" getValue={() => copyWithAutoClear(entry.password)} />
+          {/* No standalone copy button: every copy action lives in the menu
+              below, and two ways to do the same thing in the same header is
+              one more than the header can carry. */}
           <Menu label="More actions" items={buildActions({ entry, onChanged, onClose })} />
           <IconButton label="Close details" onClick={onClose}>
             <Icon.Close />

@@ -12,6 +12,7 @@ import { parseOtpauthUri } from '../core/totp.js';
 import { computeSecurityScore } from '../core/security-score.js';
 import { KeyVaultError } from '../core/errors.js';
 import { createBreachService } from './breach-service.js';
+import { createBackup, readBackup, backupFilename } from '../core/backup.js';
 
 /**
  * Turn a pasted `otpauth://` URI or bare secret into a stored TOTP config.
@@ -250,6 +251,125 @@ export function createMessageRouter({
 
     // ---- The narrow surface content scripts may reach ----
 
+    // ---- Settings (trusted contexts only) ----
+
+    'settings/get': {
+      contentScript: false,
+      handle: async () => ({ settings: (await vault.getData()).settings }),
+    },
+
+    'settings/update': {
+      contentScript: false,
+      /**
+       * Merge a partial settings change.
+       *
+       * Merged rather than replaced so a UI that knows about fewer settings
+       * than the stored vault — an older popup against a newer vault —
+       * cannot silently erase the ones it did not render.
+       */
+      handle: async ({ changes }) => {
+        if (changes === null || typeof changes !== 'object') {
+          throw new TypeError('settings changes must be an object');
+        }
+        const updated = await vault.mutate((data) => ({
+          ...data,
+          settings: {
+            ...data.settings,
+            ...changes,
+            generator: { ...data.settings.generator, ...(changes.generator ?? {}) },
+          },
+        }));
+
+        // Auto-lock reads its interval from settings, so a changed timer
+        // must take effect now rather than after the next unlock.
+        await autoLock.touch();
+        return { settings: updated.settings };
+      },
+    },
+
+    // ---- Backup (trusted contexts only) ----
+
+    'backup/create': {
+      contentScript: false,
+      /**
+       * Produce an encrypted backup of the whole vault.
+       *
+       * The passphrase is separate from the master password by design — see
+       * `core/backup.js`. Returned to the caller rather than written here:
+       * the background has no file access, and the UI is where a download
+       * belongs.
+       */
+      handle: async ({ passphrase }) => {
+        const data = await vault.getData();
+        return {
+          backup: await createBackup(data, passphrase, { now: now() }),
+          filename: backupFilename(now()),
+        };
+      },
+    },
+
+    'backup/restore': {
+      contentScript: false,
+      /**
+       * Merge a backup into the current vault.
+       *
+       * Merged, never replaced. Replacing would let one mistaken restore
+       * destroy everything added since the backup was taken, and there is
+       * no server holding a copy to undo it with. Entries already present
+       * by id are left alone.
+       */
+      handle: async ({ backup, passphrase }) => {
+        const restored = await readBackup(backup, passphrase);
+        let added = 0;
+        let skipped = 0;
+
+        await vault.mutate((data) => {
+          const known = new Set(data.entries.map((entry) => entry.id));
+          const incoming = (restored.entries ?? []).filter((entry) => {
+            if (known.has(entry.id)) {
+              skipped += 1;
+              return false;
+            }
+            added += 1;
+            return true;
+          });
+          return { ...data, entries: [...data.entries, ...incoming] };
+        });
+
+        return { added, skipped };
+      },
+    },
+
+    'backup/import': {
+      contentScript: false,
+      /**
+       * Import from another password manager.
+       *
+       * The file is parsed in the UI and arrives here as entry fields, so
+       * this layer never sees a foreign format — it only creates entries,
+       * with the same validation any manually created entry gets.
+       */
+      handle: async ({ entries }) => {
+        if (!Array.isArray(entries)) {
+          throw new TypeError('import expects an array of entries');
+        }
+        let added = 0;
+        await vault.mutate((data) =>
+          entries.reduce((current, fields) => {
+            try {
+              const entry = createEntry(withParsedTotp(fields), now());
+              added += 1;
+              return addEntry(current, entry);
+            } catch {
+              // One malformed row must not abandon the rest of the import.
+              return current;
+            }
+          }, data),
+        );
+        return { added, skipped: entries.length - added };
+      },
+    },
+
     // ---- Security tooling (trusted contexts only) ----
 
     'security/score': {
@@ -413,7 +533,7 @@ export function createMessageRouter({
        * into auto-login without the user ever seeing the choice would be
        * exactly the phishing exposure the default guards against.
        */
-      handle: async ({ url, title, username, password }) => {
+      handle: async ({ url, title, username, password, totpUri }) => {
         const host = toHostname(url);
         const origin = toOrigin(url);
         if (host === null || origin === null) {
@@ -429,13 +549,17 @@ export function createMessageRouter({
         );
 
         if (existing !== undefined) {
-          if (existing.password === password) {
+          const changes = { password };
+          if (typeof totpUri === 'string' && totpUri !== '') {
+            changes.totpUri = totpUri;
+          }
+          if (existing.password === password && changes.totpUri === undefined) {
             return { saved: false, unchanged: true };
           }
           await vault.mutate((current) =>
             replaceEntry(
               current,
-              updateEntry(findEntry(current, existing.id), { password }, now()),
+              updateEntry(findEntry(current, existing.id), withParsedTotp(changes), now()),
             ),
           );
           await autoLock.touch();
@@ -443,7 +567,7 @@ export function createMessageRouter({
         }
 
         const entry = createEntry(
-          {
+          withParsedTotp({
             title: typeof title === 'string' && title.trim() !== '' ? title.trim() : host,
             username: username ?? '',
             password,
@@ -451,7 +575,8 @@ export function createMessageRouter({
             // `https://host` loses the port, and on a dev machine
             // localhost:5173 and localhost:3000 are different applications.
             urls: [origin],
-          },
+            totpUri: typeof totpUri === 'string' && totpUri !== '' ? totpUri : undefined,
+          }),
           now(),
         );
         await vault.mutate((current) => addEntry(current, entry));

@@ -11,7 +11,7 @@
 import { detectLoginForms } from './field-detector.js';
 import { fillCredential, submitForm } from './filler.js';
 import { showSavePrompt, dismissSavePrompt, shouldOfferToSave } from './save-prompt.js';
-import { scanPageForTotp } from './qr-scan.js';
+import { scanPageForTotp, findOtpauthInText, decodeQrOnPage } from './qr-scan.js';
 
 const api = globalThis.chrome ?? globalThis.browser;
 
@@ -132,6 +132,10 @@ async function offerToSave(submission) {
     username: submission.username,
     password: submission.password,
     isUpdate,
+    // A two-step setup page shows the login form and the 2FA QR together.
+    // Offering both in one prompt is the difference between having
+    // two-factor set up and meaning to.
+    totpUri: submission.totpUri ?? (await findTotpOnThisPage()),
   });
   if (choice.action !== 'save') {
     return;
@@ -144,7 +148,31 @@ async function offerToSave(submission) {
     title: choice.title,
     username: choice.username,
     password: choice.password,
+    totpUri: choice.totpUri ?? undefined,
   });
+}
+
+/**
+ * A two-factor secret on this page, if one can be read here.
+ *
+ * Only the strategies the content script can complete on its own: printed
+ * text, and native `BarcodeDetector` where the browser has it. The bundled
+ * image decoder lives in the extension's own page, so a QR that needs it is
+ * left for the vault's Scan action rather than blocking this prompt.
+ *
+ * @returns {Promise<string|null>}
+ */
+async function findTotpOnThisPage() {
+  try {
+    const inText = findOtpauthInText(document);
+    if (inText !== null) {
+      return inText.uri;
+    }
+    const inImage = await decodeQrOnPage(document);
+    return inImage?.uri ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

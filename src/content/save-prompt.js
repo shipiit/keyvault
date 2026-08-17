@@ -80,6 +80,15 @@ const STYLES = `
   .reveal:hover { background: #eceef2; color: #16181d; }
   .reveal:focus-visible { outline: 2px solid #4f46e5; outline-offset: 1px; }
 
+  .totp {
+    display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
+    border: 1px solid #c9d4ee; background: #f2f6ff; border-radius: 9px; padding: 9px 10px;
+  }
+  .totp input { width: 15px; height: 15px; flex: none; margin: 1px 0 0; padding: 0; accent-color: #4f46e5; }
+  .totp .copy { font-size: 12px; line-height: 1.45; }
+  .totp .copy b { display: block; font-weight: 600; }
+  .totp .copy span { color: #5a6172; }
+
   .row { display: flex; gap: 8px; margin-top: 2px; }
   button.action {
     flex: 1; height: 36px; border-radius: 9px; font-size: 13px; font-weight: 600;
@@ -100,6 +109,8 @@ const STYLES = `
     .reveal { color: #a2a8b8; }
     .reveal:hover { background: #2c303a; color: #f2f3f6; }
     .secondary { background: #262a33; color: #f2f3f6; border-color: #3a4050; }
+    .totp { background: #202637; border-color: #3b4a6b; }
+    .totp .copy span { color: #a2a8b8; }
   }
 `;
 
@@ -177,7 +188,7 @@ function buildField({ label, value, mono = false, type = 'text' }) {
  * @returns {Promise<{action: 'save'|'dismiss', title: string, username: string,
  *                    password: string}>}
  */
-export function showSavePrompt({ title, site, username, password, isUpdate }) {
+export function showSavePrompt({ title, site, username, password, isUpdate, totpUri = null }) {
   dismissSavePrompt();
 
   return new Promise((resolve) => {
@@ -216,6 +227,8 @@ export function showSavePrompt({ title, site, username, password, isUpdate }) {
     headings.append(heading, siteLine);
     head.append(mark, headings);
 
+    panel.append(head);
+
     const titleField = buildField({ label: 'Name', value: title });
     const userField = buildField({ label: 'Username', value: username });
     const passField = buildField({
@@ -241,6 +254,32 @@ export function showSavePrompt({ title, site, username, password, isUpdate }) {
       reveal.setAttribute('aria-pressed', String(!wasShown));
     });
     passField.control.append(reveal);
+    panel.append(titleField.wrapper, userField.wrapper, passField.wrapper);
+
+    // Offered only when a two-factor secret was actually found on this page.
+    // A 2FA setup page shows the login and the QR together, so capturing
+    // both in one step is the difference between setting up two-factor and
+    // meaning to and never getting round to it.
+    let totpCheckbox = null;
+    if (totpUri !== null) {
+      const totpRow = document.createElement('label');
+      totpRow.className = 'totp';
+
+      totpCheckbox = document.createElement('input');
+      totpCheckbox.type = 'checkbox';
+      totpCheckbox.checked = true;
+
+      const copy = document.createElement('span');
+      copy.className = 'copy';
+      const heading = document.createElement('b');
+      heading.textContent = 'Also save the two-factor code';
+      const detail = document.createElement('span');
+      detail.textContent = 'A setup code was found on this page.';
+      copy.append(heading, detail);
+
+      totpRow.append(totpCheckbox, copy);
+      panel.append(totpRow);
+    }
 
     const row = document.createElement('div');
     row.className = 'row';
@@ -251,6 +290,7 @@ export function showSavePrompt({ title, site, username, password, isUpdate }) {
         title: titleField.input.value.trim(),
         username: userField.input.value,
         password: passField.input.value,
+        totpUri: totpCheckbox?.checked === true ? totpUri : null,
       };
       host.remove();
       current = null;
@@ -279,7 +319,7 @@ export function showSavePrompt({ title, site, username, password, isUpdate }) {
     });
 
     row.append(notNow, save);
-    panel.append(head, titleField.wrapper, userField.wrapper, passField.wrapper, row);
+    panel.append(row);
     shadow.append(style, panel);
     document.documentElement.append(host);
 
@@ -293,6 +333,7 @@ export function showSavePrompt({ title, site, username, password, isUpdate }) {
       revealButton: reveal,
       saveButton: save,
       dismissButton: notNow,
+      totpCheckbox,
     };
     save.focus();
   });
