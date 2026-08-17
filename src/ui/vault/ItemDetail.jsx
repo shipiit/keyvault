@@ -4,7 +4,16 @@ import { Button } from '../components/Button.jsx';
 import { TotpPanel } from './TotpPanel.jsx';
 import { TotpSetupCard } from './TotpSetupCard.jsx';
 import { SecurityTab } from './SecurityTab.jsx';
-import { getEntry, copyWithAutoClear } from '../lib/messaging.js';
+import { Menu } from './Menu.jsx';
+import {
+  getEntry,
+  copyWithAutoClear,
+  updateEntryRemote,
+  deleteEntryRemote,
+  createEntryRemote,
+  getTotp,
+  fillOnActiveTab,
+} from '../lib/messaging.js';
 import { relativeTime } from './ItemList.jsx';
 
 const TABS = [
@@ -20,6 +29,105 @@ const TABS = [
  * and dropped when the selection changes. It is never held for the whole
  * session, and the password is masked until explicitly revealed.
  */
+/**
+ * The overflow menu's actions.
+ *
+ * Grouped by consequence: copying first, then changes to the item, then
+ * deletion last and visually separated — the ordering that makes an
+ * accidental delete least likely.
+ *
+ * @param {{entry: object, onChanged: Function, onClose: Function}} context
+ */
+function buildActions({ entry, onChanged, onClose }) {
+  const hasTotp = entry.totp !== null && entry.totp !== undefined;
+  const website = entry.urls?.[0];
+
+  return [
+    {
+      label: 'Copy username',
+      icon: Icon.User,
+      disabled: !entry.username,
+      onSelect: () => copyWithAutoClear(entry.username),
+    },
+    {
+      label: 'Copy password',
+      icon: Icon.Lock,
+      disabled: !entry.password,
+      onSelect: () => copyWithAutoClear(entry.password),
+    },
+    {
+      label: 'Copy one-time code',
+      icon: Icon.Shield,
+      disabled: !hasTotp,
+      onSelect: async () => {
+        const { code } = await getTotp(entry.id);
+        await copyWithAutoClear(code);
+      },
+    },
+    {
+      label: 'Copy website',
+      icon: Icon.Globe,
+      disabled: website === undefined,
+      // No auto-clear: a URL is not a secret, and wiping the clipboard
+      // 30 seconds after copying a link would be surprising.
+      onSelect: () => navigator.clipboard.writeText(website),
+    },
+    { type: 'separator' },
+    {
+      label: 'Fill on the current page',
+      icon: Icon.Edit,
+      disabled: !entry.password,
+      onSelect: () => fillOnActiveTab(entry.id),
+    },
+    {
+      label: entry.favorite ? 'Remove from favorites' : 'Add to favorites',
+      icon: Icon.Star,
+      onSelect: async () => {
+        await updateEntryRemote(entry.id, { favorite: !entry.favorite });
+        onChanged();
+      },
+    },
+    {
+      label: 'Duplicate item',
+      icon: Icon.Copy,
+      onSelect: async () => {
+        await createEntryRemote({
+          title: `${entry.title} (copy)`,
+          username: entry.username,
+          password: entry.password,
+          urls: entry.urls,
+          notes: entry.notes,
+          type: entry.type,
+          // The copy does not inherit auto-login. Duplicating an item is not
+          // the same as deciding a second credential may submit itself.
+          autoSubmit: false,
+        });
+        onChanged();
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Delete item',
+      icon: Icon.Trash,
+      tone: 'danger',
+      onSelect: async () => {
+        // The vault is local-only with no server-side undo, so a deletion
+        // is final. It gets an explicit confirmation naming the item.
+        const confirmed = window.confirm(
+          `Delete “${entry.title}” permanently?\n\n` +
+            'This cannot be undone — KeyVault has no server holding a copy.',
+        );
+        if (!confirmed) {
+          return;
+        }
+        await deleteEntryRemote(entry.id);
+        onClose();
+        onChanged();
+      },
+    },
+  ];
+}
+
 export function ItemDetail({ entryId, onEdit, onClose, onChanged, compact = false }) {
   const [entry, setEntry] = useState(null);
   const [error, setError] = useState(null);
@@ -91,9 +199,7 @@ export function ItemDetail({ entryId, onEdit, onClose, onChanged, compact = fals
             {compact ? '' : 'Edit'}
           </Button>
           <CopyButton label="Copy password" getValue={() => copyWithAutoClear(entry.password)} />
-          <IconButton label="More actions">
-            <Icon.More />
-          </IconButton>
+          <Menu label="More actions" items={buildActions({ entry, onChanged, onClose })} />
           <IconButton label="Close details" onClick={onClose}>
             <Icon.Close />
           </IconButton>

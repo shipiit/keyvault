@@ -104,6 +104,34 @@ export async function getActiveTabUrl() {
 }
 
 /**
+ * Ask the page in the active tab to fill this credential.
+ *
+ * The background still re-checks that the entry belongs to that origin
+ * before releasing anything, so this is a convenience, not a bypass.
+ *
+ * @param {string} id
+ * @returns {Promise<{filled: boolean, reason?: string}>}
+ */
+export async function fillOnActiveTab(id) {
+  if (useDevMock) {
+    return { filled: true };
+  }
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id === undefined) {
+    return { filled: false, reason: 'no active tab' };
+  }
+  try {
+    return (
+      (await api.tabs.sendMessage(tab.id, { type: 'content/fill', payload: { id } })) ?? {
+        filled: false,
+      }
+    );
+  } catch {
+    return { filled: false, reason: 'KeyVault cannot reach that page — reload it and try again.' };
+  }
+}
+
+/**
  * Look for a TOTP setup code in the user's open tabs.
  *
  * Which tab to ask is not obvious, and getting it wrong is why this first
