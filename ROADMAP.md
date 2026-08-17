@@ -101,7 +101,7 @@ onboarding pushes so hard on choosing one that will be remembered.
 
 ## Done
 
-Stages 1 to 3 are complete, and most of stage 4. Working today:
+Stages 1 to 5 are complete. Working today:
 
 - Encrypted vault, auto-lock, master password change
 - Autofill on page load, in-field badge with a login picker
@@ -111,40 +111,53 @@ Stages 1 to 3 are complete, and most of stage 4. Working today:
 - Security score, opt-in breach checking
 - Encrypted backup, restore, and importers for the major managers
 - Settings for everything above
+- **Trash with undo** — deleting is reversible, and nothing is purged on a timer
+- **Watchtower** — every weak, reused, breached or stale password, grouped by
+  problem, each one a click from the item that causes it
+- **Change a password from the finding that reports it** — generates a
+  replacement and opens the site's `/.well-known/change-password` page
+- **Touch ID unlock** — WebAuthn PRF wraps the vault key to the device, prompts
+  on its own, and the master password always still works
+- **Release notifications** — Chrome never updates a folder-loaded extension,
+  so it asks GitHub once a day whether a newer release exists
+- **Recovery kit** — a printable sheet carrying a vault ID and no secrets
+- **End-to-end tests** — Playwright against a real Chromium with the extension
+  installed, which found a live bug in the trust boundary on its first run
+- **Pinned extension ID** — a manifest key, so moving the folder no longer
+  produces a new ID and an apparently empty vault
 
 ## To do
 
 Ordered by what would be felt first.
 
-### 1. Trash with undo
+### 1. Encrypted sync
 
-Deleting is permanent, and nothing holds a copy. This is the only remaining
-way to lose data through ordinary use, so it goes first. Soft-delete with a
-`deletedAt` stamp, a Trash view that restores, and a purge that is explicit.
+The largest remaining gap. One machine, one vault, and the export is the only
+backup. An encrypted blob pushed to storage the user controls — Drive,
+Dropbox, WebDAV — with the provider seeing ciphertext and nothing else. This
+is where password managers lose data, so it gets a written design and an
+approval before any code: which providers, how conflicts resolve, what happens
+when two machines edit the same entry.
 
-### 2. End-to-end tests
+### 2. Item types beyond logins
 
-The largest gap in the project. Six hundred tests, none of which load the
-extension in a browser — and every bug found in real use was of a kind they
-structurally could not catch: a blank popup from absolute asset paths, an
-`import` in a content script, a save prompt lost to a message sent during
-unload, a two-factor secret read from the page heading. Playwright with the
-extension loaded, covering the flows a person actually performs.
+Cards, identities and documents can be created but are given login fields.
+Each needs its own shape — a card wants a number, expiry and security code —
+and the sidebar categories stay half-real until they have one.
 
-### 3. Watchtower view
+### 3. Duplicate detection
 
-The security score is computed but not clickable. The weak, reused and
-breached lists exist in the data and have nowhere to be shown.
+An import from another manager leaves near-duplicates. Find them and offer a
+merge.
 
-### 4. Show a QR to move a credential to a phone
+### 4. A command palette
+
+Search, jump to an entry, copy a password, generate one — without the mouse.
+
+### 5. Show a QR to move a credential to a phone
 
 The reverse of scanning. Needs a QR _encoder_, which is a few hundred lines
 and has no dependency worth taking for it.
-
-### 5. Item types beyond logins
-
-Cards, identities and documents can be created but are given login fields.
-Each needs its own shape — a card wants a number, expiry and security code.
 
 ### 6. Folders
 
@@ -154,17 +167,15 @@ The data model carries them and nothing uses them.
 
 The handler exists and is tested; there is no way to reach it.
 
-### 8. Touch ID unlock
+### 8. Per-site rules
 
-Built but unproven — see above. It needs a working PRF-capable authenticator,
-and if Chrome's macOS one cannot do it, the honest resolution is to remove
-the feature rather than leave a button that fails.
+"Never autofill here", for the handful of sites where it misbehaves.
 
 ## Before any public release
 
 - [ ] Third-party security review — the "not yet audited" warning stays in the
       README until this happens
-- [ ] Playwright end-to-end suite with the extension actually loaded
+- [x] Playwright end-to-end suite with the extension actually loaded
 - [ ] Reproducible build, with the crypto core left unminified so a reviewer can
       audit the shipped bytes
 - [ ] Chrome Web Store listing, privacy policy, and permission justifications
