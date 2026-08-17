@@ -48,10 +48,22 @@ export function base32Encode(bytes) {
  * groups and users paste them verbatim. Any character outside the alphabet
  * is still an error.
  *
+ * `lenient` accepts a length RFC 4648 cannot produce.
+ *
+ * A canonical encoding never leaves 1, 3 or 6 characters over, because
+ * those carry fewer than 8 whole bits. But TOTP secrets are not canonical
+ * encodings — they are "some base32 characters", and services do issue keys
+ * of those lengths. Every authenticator app decodes the whole bytes
+ * available and discards the trailing partial bits, so rejecting such a key
+ * makes this the only tool that cannot read it. Strictness stays the
+ * default so the codec remains a correct RFC 4648 implementation
+ * everywhere else.
+ *
  * @param {string} input
+ * @param {{lenient?: boolean}} [options]
  * @returns {Uint8Array}
  */
-export function base32Decode(input) {
+export function base32Decode(input, options = {}) {
   if (typeof input !== 'string') {
     throw new ParseError('base32 input must be a string');
   }
@@ -61,8 +73,8 @@ export function base32Decode(input) {
     return new Uint8Array();
   }
   // 1, 3, and 6 leftover characters carry fewer than 8 whole bits, so they
-  // cannot terminate a valid encoding.
-  if ([1, 3, 6].includes(cleaned.length % 8)) {
+  // cannot terminate a canonical encoding.
+  if (options.lenient !== true && [1, 3, 6].includes(cleaned.length % 8)) {
     throw new ParseError('base32 input has an invalid length');
   }
 

@@ -11,6 +11,15 @@ export const DEFAULT_TOTP = Object.freeze({
 const SUPPORTED_ALGORITHMS = new Set(['SHA-1', 'SHA-256', 'SHA-512']);
 const SUPPORTED_DIGITS = new Set([6, 7, 8]);
 
+/**
+ * Shortest bare setup key accepted.
+ *
+ * RFC 4226 requires at least 80 bits of shared secret, which is 16 base32
+ * characters. The floor matters because A–Z are all valid base32, so
+ * without it any pasted word would be stored as a working-looking key.
+ */
+const MIN_BARE_SECRET_LENGTH = 16;
+
 const ALGORITHM_ALIASES = new Map([
   ['SHA1', 'SHA-1'],
   ['SHA-1', 'SHA-1'],
@@ -55,7 +64,9 @@ export async function generateTotp({
   const counter = BigInt(Math.floor(timestamp / 1000 / period));
   const key = await crypto.subtle.importKey(
     'raw',
-    base32Decode(secret),
+    // Lenient: a TOTP secret is a run of base32 characters, not a canonical
+    // RFC 4648 encoding, and services issue lengths the strict rule rejects.
+    base32Decode(secret, { lenient: true }),
     { name: 'HMAC', hash: { name: algorithm } },
     false,
     ['sign'],
@@ -149,8 +160,14 @@ export function parseOtpauthUri(uri) {
     throw new ParseError('otpauth:// URI has no secret');
   }
   try {
-    base32Decode(secret);
+    const decoded = base32Decode(secret, { lenient: true });
+    if (decoded.length === 0) {
+      throw new ParseError('otpauth:// secret is too short to be a key');
+    }
   } catch (cause) {
+    if (cause instanceof ParseError) {
+      throw cause;
+    }
     throw new ParseError('otpauth:// secret is not valid base32', { cause });
   }
 
@@ -179,6 +196,51 @@ export function parseOtpauthUri(uri) {
     digits,
     period,
   };
+}
+
+/**
+ * Parse whatever a user pastes into a two-factor field.
+ *
+ * Sites hand out the secret in two shapes — a full `otpauth://` URI, or the
+ * bare setup key printed beside the QR — and users paste whichever they were
+ * given. Accepting only one of them makes a perfectly valid key look
+ * invalid.
+ *
+ * This exists because the edit form and the setup card each did their own
+ * validation and drifted: one accepted a bare key, the other rejected it.
+ * One function, used by both, cannot disagree with itself.
+ *
+ * @param {string} input
+ * @param {{title?: string}} [context] names the account when only a bare key
+ *   was given, since a bare key carries no label
+ * @returns {{type: string, issuer: string, account: string, secret: string,
+ *            algorithm: string, digits: number, period: number}}
+ */
+export function parseTotpInput(input, context = {}) {
+  if (typeof input !== 'string' || input.trim() === '') {
+    throw new ParseError('enter a setup key or an otpauth:// link');
+  }
+
+  const raw = input.trim();
+  if (raw.toLowerCase().startsWith('otpauth')) {
+    return parseOtpauthUri(raw);
+  }
+
+  // Every letter A–Z is a base32 character, so an ordinary English word
+  // decodes happily and would be stored as a secret that never produces a
+  // working code. RFC 4226 puts the floor at 80 bits — 16 characters — and
+  // no real service issues less, so anything shorter is a mis-paste.
+  const compact = raw.replace(/[\s-]/g, '');
+  if (compact.length < MIN_BARE_SECRET_LENGTH) {
+    throw new ParseError(
+      `a setup key is at least ${MIN_BARE_SECRET_LENGTH} characters — check what you pasted`,
+    );
+  }
+
+  const label = context.title ?? 'Account';
+  return parseOtpauthUri(
+    `otpauth://totp/${encodeURIComponent(label)}?secret=${encodeURIComponent(raw)}`,
+  );
 }
 
 /**

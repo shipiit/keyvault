@@ -7,8 +7,7 @@ import {
   searchEntries,
 } from '../core/vault-data.js';
 import { entriesForUrl, entryMatchesUrl, toHostname, toOrigin } from '../core/url-match.js';
-import { generateTotp, totpTimeRemaining } from '../core/totp.js';
-import { parseOtpauthUri } from '../core/totp.js';
+import { parseTotpInput, generateTotp, totpTimeRemaining } from '../core/totp.js';
 import { computeSecurityScore } from '../core/security-score.js';
 import { KeyVaultError } from '../core/errors.js';
 import { createBreachService } from './breach-service.js';
@@ -34,12 +33,10 @@ function withParsedTotp(fields) {
     return { ...rest, totp: null };
   }
 
-  const raw = totpUri.trim();
-  const config = raw.toLowerCase().startsWith('otpauth://')
-    ? parseOtpauthUri(raw)
-    : parseOtpauthUri(
-        `otpauth://totp/${encodeURIComponent(rest.title ?? 'Account')}?secret=${encodeURIComponent(raw)}`,
-      );
+  // The shared parser: accepts a full otpauth:// link or the bare setup key,
+  // so a credential saved from the page, the edit form and the setup card
+  // all validate identically.
+  const config = parseTotpInput(totpUri, { title: rest.title });
 
   return {
     ...rest,

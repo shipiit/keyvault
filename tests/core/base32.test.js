@@ -71,11 +71,30 @@ describe('base32Decode', () => {
     expect(() => base32Decode('MZXW!YTB')).toThrow(ParseError);
   });
 
-  it('throws ParseError on an impossible length', () => {
-    // 1, 3, and 6 leftover characters carry fewer than 8 whole bits.
+  it('throws ParseError on a non-canonical length by default', () => {
+    // 1, 3, and 6 leftover characters carry fewer than 8 whole bits, so no
+    // canonical encoder produces them.
     expect(() => base32Decode('M')).toThrow(ParseError);
     expect(() => base32Decode('MZX')).toThrow(ParseError);
     expect(() => base32Decode('MZXW6Y')).toThrow(ParseError);
+  });
+
+  it('accepts a non-canonical length when asked to be lenient', () => {
+    // TOTP secrets are a run of base32 characters rather than a canonical
+    // encoding, and every authenticator decodes the whole bytes available
+    // and drops the trailing partial bits.
+    expect(() => base32Decode('MZXW6Y', { lenient: true })).not.toThrow();
+    expect(base32Decode('MZXW6Y', { lenient: true })).toHaveLength(3);
+  });
+
+  it('lenient decoding agrees with strict decoding where both are valid', () => {
+    // Leniency must only widen what is accepted, never change what a valid
+    // key decodes to — otherwise codes would silently stop matching.
+    for (const input of ['MZXW6YTB', 'MZXW6YTBOI', 'JBSWY3DPEHPK3PXP']) {
+      expect(Array.from(base32Decode(input, { lenient: true }))).toEqual(
+        Array.from(base32Decode(input)),
+      );
+    }
   });
 
   it('throws ParseError on non-string input', () => {

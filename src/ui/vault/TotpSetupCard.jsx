@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { Icon } from './primitives.jsx';
 import { Button } from '../components/Button.jsx';
 import { scanOpenTabsForTotp, updateEntryRemote } from '../lib/messaging.js';
-import { parseOtpauthUri } from '../../core/totp.js';
+import { parseTotpInput } from '../../core/totp.js';
 
 /**
  * Offer to add a two-factor code to an item that has none.
@@ -22,9 +22,7 @@ export function TotpSetupCard({ entryId, onAdded }) {
       // Validated here so a bad key fails while the user is still looking at
       // the setup page, not weeks later when they need the code.
       const raw = value.trim();
-      if (raw.toLowerCase().startsWith('otpauth://')) {
-        parseOtpauthUri(raw);
-      }
+      parseTotpInput(raw);
       await updateEntryRemote(entryId, { totpUri: raw });
       setState({ status: 'idle', fromTab });
       setManual(null);

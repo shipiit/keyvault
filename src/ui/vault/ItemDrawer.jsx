@@ -4,7 +4,7 @@ import { Button } from '../components/Button.jsx';
 import { Field } from '../components/Field.jsx';
 import { GeneratorPopover } from './GeneratorPopover.jsx';
 import { assessPassword } from '../../core/password-strength.js';
-import { parseOtpauthUri } from '../../core/totp.js';
+import { parseTotpInput } from '../../core/totp.js';
 import { scanOpenTabsForTotp } from '../lib/messaging.js';
 
 const TYPES = [
@@ -88,10 +88,11 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
     }
     if (values.totpUri.trim() !== '') {
       try {
-        parseOtpauthUri(values.totpUri.trim());
+        // Accepts a full otpauth:// link or the bare setup key. Validated
+        // here so a bad key fails while the user is looking at it, not
+        // later when they need the code.
+        parseTotpInput(values.totpUri, { title: values.title });
       } catch (error) {
-        // Validated here so a bad QR or pasted URI fails while the user is
-        // looking at it, not later when they need the code.
         found.totpUri = error.message;
       }
     }
