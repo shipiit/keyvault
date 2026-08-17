@@ -2,8 +2,13 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { setFieldValue, fillCredential, submitForm } from '../../src/content/filler.js';
-import { detectLoginForms } from '../../src/content/field-detector.js';
+import {
+  setFieldValue,
+  fillCredential,
+  submitForm,
+  fillOtpCode,
+} from '../../src/content/filler.js';
+import { detectLoginForms, detectOtpFields } from '../../src/content/field-detector.js';
 
 function mount(html) {
   document.body.innerHTML = html;
@@ -138,6 +143,94 @@ describe('fillCredential', () => {
     fillCredential(detectLoginForms(document)[0], { username: 'u', password: 'p' });
 
     expect(submitted).not.toHaveBeenCalled();
+  });
+});
+
+describe('detectOtpFields', () => {
+  it('finds a row of single-character boxes', () => {
+    // The shape a two-step page actually uses. Treating it as one field
+    // puts all six digits in the first box and the site rejects it.
+    mount(Array.from({ length: 6 }, () => '<input maxlength="1" type="text">').join(''));
+    const target = detectOtpFields(document);
+    expect(target.split).toBe(true);
+    expect(target.fields).toHaveLength(6);
+  });
+
+  it('finds a single field marked one-time-code', () => {
+    mount('<input autocomplete="one-time-code" id="c">');
+    const target = detectOtpFields(document);
+    expect(target.split).toBe(false);
+    expect(target.fields[0].id).toBe('c');
+  });
+
+  it('infers a single field from its name', () => {
+    mount('<input name="verification_code" maxlength="6" id="c">');
+    expect(detectOtpFields(document).fields[0].id).toBe('c');
+  });
+
+  it('does not mistake a search box named code for a code entry', () => {
+    mount('<input name="coupon_code" type="search">');
+    expect(detectOtpFields(document)).toBeNull();
+  });
+
+  it('does not mistake a password field for a code', () => {
+    mount('<input type="password" name="otp">');
+    expect(detectOtpFields(document)).toBeNull();
+  });
+
+  it('returns null on a page with no code entry', () => {
+    mount('<input type="text" name="search">');
+    expect(detectOtpFields(document)).toBeNull();
+  });
+
+  it('ignores a lone single-character box, which is not a code row', () => {
+    mount('<input maxlength="1">');
+    expect(detectOtpFields(document)).toBeNull();
+  });
+});
+
+describe('fillOtpCode', () => {
+  it('spreads one digit per box', () => {
+    mount(Array.from({ length: 6 }, (_, i) => `<input maxlength="1" id="b${i}">`).join(''));
+    const target = detectOtpFields(document);
+
+    expect(fillOtpCode(target, '049779')).toBe(true);
+    expect([...'012345'].map((i) => document.getElementById(`b${i}`).value)).toEqual([
+      '0',
+      '4',
+      '9',
+      '7',
+      '7',
+      '9',
+    ]);
+  });
+
+  it('notifies the page for every box, not just the first', () => {
+    // These components advance focus themselves on input; a box written to
+    // without an event is a box the component does not know about.
+    mount(Array.from({ length: 6 }, () => '<input maxlength="1">').join(''));
+    const seen = [];
+    document.addEventListener('input', (event) => seen.push(event.target.value));
+
+    fillOtpCode(detectOtpFields(document), '049779');
+    expect(seen).toEqual(['0', '4', '9', '7', '7', '9']);
+  });
+
+  it('fills a single field in one go', () => {
+    mount('<input autocomplete="one-time-code" id="c">');
+    fillOtpCode(detectOtpFields(document), '049779');
+    expect(document.getElementById('c').value).toBe('049779');
+  });
+
+  it('refuses a code longer than the row', () => {
+    mount(Array.from({ length: 4 }, () => '<input maxlength="1">').join(''));
+    expect(fillOtpCode(detectOtpFields(document), '049779')).toBe(false);
+  });
+
+  it('does nothing with an empty code or no target', () => {
+    expect(fillOtpCode(null, '049779')).toBe(false);
+    mount('<input autocomplete="one-time-code">');
+    expect(fillOtpCode(detectOtpFields(document), '')).toBe(false);
   });
 });
 

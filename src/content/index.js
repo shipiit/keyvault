@@ -8,8 +8,8 @@
  * nothing here is trusted to have got that right.
  */
 
-import { detectLoginForms } from './field-detector.js';
-import { fillCredential, submitForm } from './filler.js';
+import { detectLoginForms, detectOtpFields } from './field-detector.js';
+import { fillCredential, submitForm, fillOtpCode } from './filler.js';
 import { showSavePrompt, dismissSavePrompt, shouldOfferToSave } from './save-prompt.js';
 import { scanPageForTotp, findOtpauthInText, decodeQrOnPage } from './qr-scan.js';
 
@@ -241,6 +241,50 @@ async function autofillOnLoad() {
   }
 }
 
+/** One-time-code fields already filled, so a re-render does not refill. */
+const filledOtpFields = new WeakSet();
+
+/**
+ * Fill the two-factor code on a verification page.
+ *
+ * The step after a password is the one where a manager earns its keep: the
+ * user would otherwise be alt-tabbing to read six digits that expire in
+ * thirty seconds.
+ *
+ * Never submits. A wrong code can lock an account, and unlike a password
+ * the user cannot simply retry indefinitely.
+ */
+async function autofillOtp() {
+  const target = detectOtpFields(document);
+  if (target === null) {
+    return;
+  }
+
+  const [first] = target.fields;
+  if (filledOtpFields.has(first) || first.value !== '') {
+    return;
+  }
+
+  let result;
+  try {
+    result = await send('credentials/otp', { url: window.location.href });
+  } catch {
+    return;
+  }
+  if (result.code === null) {
+    return;
+  }
+
+  // Codes expire. Filling one with a couple of seconds left hands the user
+  // something the site will reject; waiting for the next is better.
+  if (typeof result.remainingSeconds === 'number' && result.remainingSeconds < 3) {
+    return;
+  }
+
+  filledOtpFields.add(first);
+  fillOtpCode(target, result.code);
+}
+
 /**
  * Watch for a login form that appears after the initial load.
  *
@@ -261,6 +305,7 @@ function watchForLoginForms() {
     setTimeout(() => {
       scheduled = false;
       autofillOnLoad();
+      autofillOtp();
     }, 300);
   };
 

@@ -91,6 +91,48 @@ export function fillCredential(target, credential) {
 }
 
 /**
+ * Type a one-time code into whatever shape the page uses.
+ *
+ * A row of single-character boxes needs the digits distributed one per box,
+ * each with its own events — filling the first box with all six digits is
+ * what happens otherwise, and the site rejects it.
+ *
+ * Each box is focused before it is written to, because these components
+ * usually advance focus themselves on input, and writing to a box the
+ * component thinks is not active is ignored.
+ *
+ * @param {{fields: HTMLInputElement[], split: boolean}} target
+ * @param {string} code
+ * @returns {boolean}
+ */
+export function fillOtpCode(target, code) {
+  if (target === null || target === undefined || code === '') {
+    return false;
+  }
+
+  if (!target.split) {
+    const [field] = target.fields;
+    field?.focus?.();
+    return setFieldValue(field, code);
+  }
+
+  const digits = [...code];
+  if (digits.length > target.fields.length) {
+    return false;
+  }
+
+  digits.forEach((digit, index) => {
+    const field = target.fields[index];
+    field?.focus?.();
+    setFieldValue(field, digit);
+  });
+
+  // Blur the last box so validation that runs on blur fires.
+  target.fields[digits.length - 1]?.blur?.();
+  return target.fields[0].value !== '';
+}
+
+/**
  * Submit a filled login form.
  *
  * Only ever called when the specific credential opted in — auto-submit is

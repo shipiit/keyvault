@@ -246,6 +246,69 @@ export function findUsernameFor(password, scope) {
   return candidates.reduce((best, current) => (current.score >= best.score ? current : best)).input;
 }
 
+/** Names and labels that mark a one-time-code field. */
+const OTP_HINTS =
+  /(one.?time|otp\b|2fa|two.?factor|verification|verify|auth.?code|security.?code|token|mfa)/i;
+
+/**
+ * Find the one-time-code entry on a page.
+ *
+ * Two shapes cover almost everything:
+ *
+ *  - **One field.** Usually marked `autocomplete="one-time-code"`, which is
+ *    the standard and the only signal a site states deliberately.
+ *  - **A row of single-character boxes.** Visually nicer, and the reason a
+ *    naive "fill the first input" approach puts all six digits in box one.
+ *
+ * Returns the fields in document order, so the caller can distribute digits
+ * across them.
+ *
+ * @param {Document|Element} root
+ * @returns {{fields: HTMLInputElement[], split: boolean}|null}
+ */
+export function detectOtpFields(root) {
+  const inputs = collectInputs(root).filter(
+    (input) => isFillable(input) && !isPasswordField(input),
+  );
+
+  // A row of short boxes. Checked first: such a page often labels only the
+  // group, so the individual inputs carry no useful name.
+  const boxes = inputs.filter((input) => {
+    const maxLength = Number(input.getAttribute('maxlength'));
+    const type = (input.type ?? 'text').toLowerCase();
+    return (
+      maxLength === 1 &&
+      (type === 'text' || type === 'tel' || type === 'number' || type === 'password')
+    );
+  });
+  if (boxes.length >= 4 && boxes.length <= 10) {
+    return { fields: boxes, split: true };
+  }
+
+  // A single field, stated outright.
+  const declared = inputs.find((input) =>
+    (input.autocomplete ?? '').toLowerCase().includes('one-time-code'),
+  );
+  if (declared !== undefined) {
+    return { fields: [declared], split: false };
+  }
+
+  // A single field, inferred. Length limits are checked so a search box
+  // named "code" is not mistaken for a code entry.
+  const named = inputs.find((input) => {
+    const text = `${input.name ?? ''} ${input.id ?? ''} ${input.placeholder ?? ''} ${
+      input.getAttribute('aria-label') ?? ''
+    }`;
+    if (!OTP_HINTS.test(text)) {
+      return false;
+    }
+    const maxLength = Number(input.getAttribute('maxlength'));
+    return Number.isNaN(maxLength) || (maxLength >= 4 && maxLength <= 10);
+  });
+
+  return named === undefined ? null : { fields: [named], split: false };
+}
+
 /**
  * All inputs under a root, including those inside open shadow roots.
  *

@@ -611,6 +611,37 @@ export function createMessageRouter({
       },
     },
 
+    'credentials/otp': {
+      contentScript: true,
+      /**
+       * The current two-factor code for this site, if exactly one saved
+       * entry for it has a secret.
+       *
+       * Returns the code, never the secret. A page that can read the code
+       * has it for thirty seconds; a page that could read the secret would
+       * have it forever.
+       */
+      handle: async ({ url }) => {
+        if (toHostname(url) === null) {
+          return { code: null, reason: 'not a web page' };
+        }
+
+        const data = await vault.getData();
+        const withTotp = entriesForUrl(data.entries, url).filter(
+          (entry) => entry.totp !== null && entry.totp !== undefined,
+        );
+        if (withTotp.length === 0) {
+          return { code: null, reason: 'no two-factor code saved for this site' };
+        }
+
+        const entry = withTotp[0];
+        return {
+          code: await generateTotp({ ...entry.totp, timestamp: now() }),
+          remainingSeconds: totpTimeRemaining(entry.totp.period, now()),
+        };
+      },
+    },
+
     'credentials/save': {
       contentScript: true,
       /**
