@@ -41,18 +41,30 @@ await mkdir(dist, { recursive: true });
 // Copy the manifest plus the unbundled background, content and core layers.
 await cp(join(src, 'manifest.json'), join(dist, 'manifest.json'));
 await cp(join(src, 'background'), join(dist, 'background'), { recursive: true });
-await cp(join(src, 'content'), join(dist, 'content'), { recursive: true });
 await cp(join(src, 'core'), join(dist, 'core'), { recursive: true });
 await cp(join(src, 'icons'), join(dist, 'icons'), { recursive: true });
 
-// The UI is compiled by Vite (Tailwind needs a build step, and the CSP
-// forbids loading it from a CDN). Its output already lands in dist/ui.
-await new Promise((resolvePromise, rejectPromise) => {
-  const vite = spawn('npx', ['vite', 'build'], { cwd: root, stdio: 'inherit' });
-  vite.on('exit', (code) =>
-    code === 0 ? resolvePromise() : rejectPromise(new Error(`vite build failed (${code})`)),
-  );
-});
+/**
+ * Run one Vite build.
+ *
+ * @param {string[]} args
+ * @param {string} label
+ */
+function viteBuild(args, label) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const vite = spawn('npx', ['vite', 'build', ...args], { cwd: root, stdio: 'inherit' });
+    vite.on('exit', (code) =>
+      code === 0 ? resolvePromise() : rejectPromise(new Error(`${label} build failed (${code})`)),
+    );
+  });
+}
+
+// The UI: Tailwind needs a build step, and the CSP forbids a CDN.
+await viteBuild([], 'ui');
+
+// The content script, bundled to a classic IIFE — see vite.content.config.js
+// for why this one cannot stay unbundled.
+await viteBuild(['--config', 'vite.content.config.js'], 'content script');
 
 // The manifest version is the one users see; keep it honest against package.json.
 const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
@@ -105,6 +117,20 @@ for (const page of ['ui/popup.html', 'ui/vault.html']) {
     if (!existsSync(resolved)) {
       throw new Error(`${page} references "${reference}", which does not exist in dist/`);
     }
+  }
+}
+
+// A content script is loaded as a classic script, so a surviving top-level
+// `import` or `export` kills it with "Cannot use import statement outside a
+// module" — at runtime, on every page, with nothing failing at build time.
+for (const entry of (manifest.content_scripts ?? []).flatMap((cs) => cs.js ?? [])) {
+  const source = await readFile(join(dist, entry), 'utf8');
+  const offending = /^\s*(?:import|export)\s/m.exec(source);
+  if (offending !== null) {
+    throw new Error(
+      `${entry} contains a top-level "${offending[0].trim()}" statement. ` +
+        'Content scripts are classic scripts and cannot use ES modules — it must be bundled.',
+    );
   }
 }
 
