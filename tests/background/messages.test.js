@@ -381,6 +381,77 @@ describe('message router', () => {
     });
   });
 
+  describe('credentials/shouldSave', () => {
+    const ask = (payload) => router.handle({ type: 'credentials/shouldSave', payload }, PAGE);
+
+    const submitted = {
+      url: 'https://github.com/login',
+      username: 'rahul@example.com',
+      password: 'S3cr3t!',
+    };
+
+    it('prompts for a credential that is not saved yet', async () => {
+      const res = await ask(submitted);
+      expect(res.data.worthSaving).toBe(true);
+      expect(res.data.isUpdate).toBe(false);
+    });
+
+    it('stays silent when nothing changed', async () => {
+      // The bug this exists for: the content script cannot see the stored
+      // password, so it asked on every single login.
+      await addGithubEntry();
+      expect((await ask(submitted)).data.worthSaving).toBe(false);
+    });
+
+    it('prompts when the password actually changed', async () => {
+      await addGithubEntry();
+      const res = await ask({ ...submitted, password: 'a-new-password' });
+
+      expect(res.data.worthSaving).toBe(true);
+      expect(res.data.isUpdate).toBe(true);
+    });
+
+    it('prompts when the entry would gain a two-factor code', async () => {
+      await addGithubEntry();
+      const res = await ask({ ...submitted, totpUri: 'JBSWY3DPEHPK3PXP' });
+
+      expect(res.data.worthSaving).toBe(true);
+      expect(res.data.gainsTotp).toBe(true);
+    });
+
+    it('stays silent when it already has that two-factor code', async () => {
+      await addGithubEntry({
+        totp: { secret: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA-1', digits: 6, period: 30 },
+      });
+      expect((await ask({ ...submitted, totpUri: 'JBSWY3DPEHPK3PXP' })).data.worthSaving).toBe(
+        false,
+      );
+    });
+
+    it('treats a different username on the same site as new', async () => {
+      await addGithubEntry();
+      const res = await ask({ ...submitted, username: 'other@example.com' });
+
+      expect(res.data.worthSaving).toBe(true);
+      expect(res.data.isUpdate).toBe(false);
+    });
+
+    it('never prompts for an empty password', async () => {
+      expect((await ask({ ...submitted, password: '' })).data.worthSaving).toBe(false);
+    });
+
+    it('never prompts for a non-web origin', async () => {
+      expect((await ask({ ...submitted, url: 'javascript:alert(1)' })).data.worthSaving).toBe(
+        false,
+      );
+    });
+
+    it('does not reveal the stored password in its answer', async () => {
+      await addGithubEntry();
+      expect(JSON.stringify(await ask(submitted))).not.toContain('S3cr3t!');
+    });
+  });
+
   describe('surviving a navigation', () => {
     // A normal form POST unloads the page and the content script with it.
     // Without a stash the save prompt only ever worked on single-page apps.

@@ -133,6 +133,47 @@ export function fillOtpCode(target, code) {
 }
 
 /**
+ * Submit the page a one-time code was typed into.
+ *
+ * Verification pages often render the boxes outside any `<form>`, so the
+ * enclosing form is tried first and then the nearest plausible submit
+ * button — searched from the field outwards, since a page header may hold
+ * unrelated buttons.
+ *
+ * @param {{fields: HTMLInputElement[]}} target
+ * @returns {boolean}
+ */
+export function submitOtp(target) {
+  const anchor = target?.fields?.[0];
+  if (anchor === null || anchor === undefined) {
+    return false;
+  }
+
+  const form = anchor.form;
+  if (form !== null && form !== undefined) {
+    return submitForm({ form });
+  }
+
+  // Walk outwards, taking the first enabled submit-looking button. Starting
+  // at the field keeps an unrelated header button from winning.
+  let scope = anchor.parentElement;
+  while (scope !== null && scope !== anchor.ownerDocument.body) {
+    const button = [...scope.querySelectorAll('button, input[type="submit"]')].find(
+      (candidate) =>
+        !candidate.disabled &&
+        (candidate.type === 'submit' ||
+          /verify|submit|continue|confirm|sign\s*in/i.test(candidate.textContent ?? '')),
+    );
+    if (button !== undefined) {
+      button.click();
+      return true;
+    }
+    scope = scope.parentElement;
+  }
+  return false;
+}
+
+/**
  * Submit a filled login form.
  *
  * Only ever called when the specific credential opted in — auto-submit is

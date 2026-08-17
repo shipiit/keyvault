@@ -7,6 +7,7 @@ import {
   fillCredential,
   submitForm,
   fillOtpCode,
+  submitOtp,
 } from '../../src/content/filler.js';
 import { detectLoginForms, detectOtpFields } from '../../src/content/field-detector.js';
 
@@ -231,6 +232,60 @@ describe('fillOtpCode', () => {
     expect(fillOtpCode(null, '049779')).toBe(false);
     mount('<input autocomplete="one-time-code">');
     expect(fillOtpCode(detectOtpFields(document), '')).toBe(false);
+  });
+});
+
+describe('submitOtp', () => {
+  const boxes = (count = 6) =>
+    Array.from({ length: count }, () => '<input maxlength="1">').join('');
+
+  it('submits the enclosing form when there is one', () => {
+    mount(`<form>${boxes()}<button type="submit" id="go">Verify</button></form>`);
+    const clicked = vi.fn();
+    document.getElementById('go').addEventListener('click', clicked);
+
+    expect(submitOtp(detectOtpFields(document))).toBe(true);
+    expect(clicked).toHaveBeenCalledOnce();
+  });
+
+  it('finds the button when the boxes are not inside a form', () => {
+    // Verification pages routinely render the boxes outside any <form>.
+    mount(`<div>${boxes()}<button id="go">Verify</button></div>`);
+    const clicked = vi.fn();
+    document.getElementById('go').addEventListener('click', clicked);
+
+    expect(submitOtp(detectOtpFields(document))).toBe(true);
+    expect(clicked).toHaveBeenCalledOnce();
+  });
+
+  it('prefers a button near the boxes over one elsewhere on the page', () => {
+    mount(`
+      <header><button id="away">Sign out</button></header>
+      <div id="panel">${boxes()}<button id="go">Verify</button></div>
+    `);
+    const near = vi.fn();
+    const far = vi.fn();
+    document.getElementById('go').addEventListener('click', near);
+    document.getElementById('away').addEventListener('click', far);
+
+    submitOtp(detectOtpFields(document));
+    expect(near).toHaveBeenCalledOnce();
+    expect(far).not.toHaveBeenCalled();
+  });
+
+  it('ignores a disabled button rather than clicking nothing', () => {
+    mount(`<div>${boxes()}<button id="go" disabled>Verify</button></div>`);
+    const clicked = vi.fn();
+    document.getElementById('go').addEventListener('click', clicked);
+
+    expect(submitOtp(detectOtpFields(document))).toBe(false);
+    expect(clicked).not.toHaveBeenCalled();
+  });
+
+  it('reports failure when there is nothing to submit', () => {
+    mount(`<div>${boxes()}</div>`);
+    expect(submitOtp(detectOtpFields(document))).toBe(false);
+    expect(submitOtp(null)).toBe(false);
   });
 });
 

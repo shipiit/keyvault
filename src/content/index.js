@@ -9,8 +9,8 @@
  */
 
 import { detectLoginForms, detectOtpFields } from './field-detector.js';
-import { fillCredential, submitForm, fillOtpCode } from './filler.js';
-import { showSavePrompt, dismissSavePrompt, shouldOfferToSave } from './save-prompt.js';
+import { fillCredential, submitForm, fillOtpCode, submitOtp } from './filler.js';
+import { showSavePrompt, dismissSavePrompt } from './save-prompt.js';
 import { scanPageForTotp, findOtpauthInText, decodeQrOnPage } from './qr-scan.js';
 
 const api = globalThis.chrome ?? globalThis.browser;
@@ -112,17 +112,28 @@ async function offerToSave(submission) {
     return;
   }
 
-  let known = [];
+  // Found before asking, so the prompt can say whether the two-factor code
+  // is also new.
+  const totpUri = submission.totpUri ?? (await findTotpOnThisPage());
+
+  let verdict;
   try {
-    ({ entries: known } = await send('credentials/forUrl', { url: submission.url }));
+    // Asked of the background rather than decided here: only it can see the
+    // stored password, and without that comparison the prompt appears on
+    // every login even when nothing changed.
+    verdict = await send('credentials/shouldSave', {
+      url: submission.url,
+      username: submission.username,
+      password: submission.password,
+      totpUri: totpUri ?? undefined,
+    });
   } catch {
     // Locked vault, or the background is asleep. Saying nothing is right: a
     // prompt that cannot complete would only confuse.
     return;
   }
 
-  const { worthSaving, isUpdate } = shouldOfferToSave(submission, known);
-  if (!worthSaving) {
+  if (verdict.worthSaving !== true) {
     return;
   }
 
@@ -131,11 +142,11 @@ async function offerToSave(submission) {
     site: submission.url,
     username: submission.username,
     password: submission.password,
-    isUpdate,
+    isUpdate: verdict.isUpdate === true,
     // A two-step setup page shows the login form and the 2FA QR together.
     // Offering both in one prompt is the difference between having
     // two-factor set up and meaning to.
-    totpUri: submission.totpUri ?? (await findTotpOnThisPage()),
+    totpUri,
   });
   if (choice.action !== 'save') {
     return;
@@ -251,8 +262,11 @@ const filledOtpFields = new WeakSet();
  * user would otherwise be alt-tabbing to read six digits that expire in
  * thirty seconds.
  *
- * Never submits. A wrong code can lock an account, and unlike a password
- * the user cannot simply retry indefinitely.
+ * Submits only when the entry opted into auto-submit — the same per-item
+ * choice that governs the login itself. The caution is real: a wrong code
+ * can lock an account, and unlike a password it cannot be retried
+ * indefinitely. So it is the user's decision, made once per site, rather
+ * than a default.
  */
 async function autofillOtp() {
   const target = detectOtpFields(document);
@@ -282,7 +296,14 @@ async function autofillOtp() {
   }
 
   filledOtpFields.add(first);
-  fillOtpCode(target, result.code);
+  const filled = fillOtpCode(target, result.code);
+
+  if (filled && result.autoSubmit === true) {
+    // A moment for the page's own handler to register the last digit.
+    // Several of these components validate on input and enable the button
+    // asynchronously, and clicking before that does nothing.
+    setTimeout(() => submitOtp(target), 150);
+  }
 }
 
 /**

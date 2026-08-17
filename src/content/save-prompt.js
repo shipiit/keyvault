@@ -52,8 +52,8 @@ const STYLES = `
   .mark {
     width: 32px; height: 32px; border-radius: 9px; flex: none;
     background: #4f46e5; display: grid; place-items: center;
-    color: #fff; font-size: 15px; font-weight: 700;
   }
+  .mark svg { width: 18px; height: 18px; }
   .headings { min-width: 0; }
   .title { font-size: 14px; font-weight: 600; margin: 0; }
   .site { font-size: 12px; color: #5a6172; margin: 0;
@@ -146,6 +146,28 @@ function eyeIcon(struck) {
 }
 
 /**
+ * The KeyVault shield, matching the toolbar icon.
+ *
+ * Built with DOM calls rather than an innerHTML string: this runs inside an
+ * arbitrary page, and a habit of assigning markup is how injection bugs get
+ * in later even when the current string is a constant.
+ *
+ * @returns {SVGElement}
+ */
+function shieldMark() {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', '#ffffff');
+  svg.setAttribute('aria-hidden', 'true');
+
+  const shield = document.createElementNS(ns, 'path');
+  shield.setAttribute('d', 'M12 3.2 4.6 5.9v5.6c0 4.3 2.9 7.8 7.4 9.3 4.5-1.5 7.4-5 7.4-9.3V5.9z');
+  svg.append(shield);
+  return svg;
+}
+
+/**
  * Build a labelled input row.
  *
  * @param {{label: string, value: string, mono?: boolean, type?: string}} config
@@ -208,10 +230,13 @@ export function showSavePrompt({ title, site, username, password, isUpdate, totp
     const head = document.createElement('div');
     head.className = 'head';
 
+    // The KeyVault shield rather than the site's initial. A letter taken
+    // from the page reads as the site's own branding, which is exactly the
+    // wrong impression for a prompt asking to store a password.
     const mark = document.createElement('span');
     mark.className = 'mark';
-    mark.textContent = (site || title || '?').slice(0, 1).toUpperCase();
     mark.setAttribute('aria-hidden', 'true');
+    mark.append(shieldMark());
 
     const headings = document.createElement('div');
     headings.className = 'headings';

@@ -132,7 +132,12 @@ function explain(error) {
  * @param {{accountName: string}} options
  * @returns {Promise<{credentialId: string, prfOutput: Uint8Array}>}
  */
-export async function registerDeviceUnlock({ accountName, rpId = DEFAULT_RP_DOMAIN }) {
+export async function registerDeviceUnlock({
+  accountName,
+  rpId = DEFAULT_RP_DOMAIN,
+  onStep = () => {},
+}) {
+  onStep(`Asking Chrome for permission for ${rpId}…`);
   const granted = await requestRpPermission(rpId);
   if (!granted) {
     throw new Error(
@@ -142,6 +147,7 @@ export async function registerDeviceUnlock({ accountName, rpId = DEFAULT_RP_DOMA
     );
   }
 
+  onStep('Waiting for Touch ID…');
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   // Not a user account in any real sense — nothing is transmitted anywhere.
   // A stable id keeps repeat registrations from piling up credentials.
@@ -173,6 +179,7 @@ export async function registerDeviceUnlock({ accountName, rpId = DEFAULT_RP_DOMA
 
   const results = credential.getClientExtensionResults();
   if (results.prf?.enabled !== true) {
+    console.error('[keyvault] prf not enabled; extension results were', results);
     throw new Error(
       'This device can authenticate you but cannot derive a key, which KeyVault needs to ' +
         'unlock the vault. Keep using your master password.',
@@ -181,6 +188,7 @@ export async function registerDeviceUnlock({ accountName, rpId = DEFAULT_RP_DOMA
 
   // Registration reports only that PRF is available; the output itself comes
   // from an assertion, so one is made immediately.
+  onStep('Deriving the key…');
   const credentialId = toBase64Url(new Uint8Array(credential.rawId));
   const prfOutput = await evaluatePrf(credentialId, rpId);
   return { credentialId, prfOutput, rpId };

@@ -639,6 +639,57 @@ export function createMessageRouter({
         return {
           code: await generateTotp({ ...entry.totp, timestamp: now() }),
           remainingSeconds: totpTimeRemaining(entry.totp.period, now()),
+          // The same per-entry choice that governs submitting the login. If
+          // a site is trusted enough to submit a password unprompted, the
+          // code that follows is part of the same act.
+          autoSubmit: entry.autoSubmit === true,
+        };
+      },
+    },
+
+    'credentials/shouldSave': {
+      contentScript: true,
+      /**
+       * Whether this submission is worth prompting about.
+       *
+       * The content script cannot answer it: it never sees a stored
+       * password, so it can only say "an entry with this username exists"
+       * and prompts on every single login. Comparing here — the one place
+       * that holds the stored value — is what stops "Update saved password?"
+       * appearing when nothing changed.
+       *
+       * The typed password crosses the boundary, but it would anyway on the
+       * save that follows, and it is the user's own password on their own
+       * page.
+       */
+      handle: async ({ url, username, password, totpUri }) => {
+        if (toHostname(url) === null) {
+          return { worthSaving: false };
+        }
+        if (typeof password !== 'string' || password === '') {
+          return { worthSaving: false };
+        }
+
+        const data = await vault.getData();
+        const existing = data.entries.find(
+          (entry) => entryMatchesUrl(entry, url) && (entry.username ?? '') === (username ?? ''),
+        );
+
+        if (existing === undefined) {
+          return { worthSaving: true, isUpdate: false };
+        }
+
+        const passwordChanged = existing.password !== password;
+        const gainsTotp =
+          typeof totpUri === 'string' &&
+          totpUri !== '' &&
+          (existing.totp === null || existing.totp === undefined);
+
+        // Nothing new to store, so nothing to ask about.
+        return {
+          worthSaving: passwordChanged || gainsTotp,
+          isUpdate: true,
+          gainsTotp,
         };
       },
     },

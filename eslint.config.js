@@ -45,6 +45,7 @@ export default [
       parserOptions: { ecmaFeatures: { jsx: true } },
       globals: {
         chrome: 'readonly',
+        console: 'readonly',
         // Browser and worker globals. Available in the extension layers but
         // deliberately still forbidden inside src/core, which must run in
         // plain Node so the cryptography stays auditable without a browser.

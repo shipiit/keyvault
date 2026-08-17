@@ -22,6 +22,7 @@ export function DeviceUnlockSection() {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [step, setStep] = useState(null);
   const [rpId, setRpId] = useState(DEFAULT_RP_DOMAIN);
 
   useEffect(() => {
@@ -35,16 +36,35 @@ export function DeviceUnlockSection() {
     setBusy(true);
     setError(null);
     try {
+      // Reported step by step. Setup spans a permission prompt, a Touch ID
+      // prompt and a vault write, and when it fails the only useful question
+      // is which of them it got to.
       const { credentialId, prfOutput } = await registerDeviceUnlock({
         accountName: 'KeyVault on this device',
         rpId,
+        onStep: setStep,
       });
+
+      setStep('Saving to the vault…');
       // The PRF output is bytes; extension messaging serialises as JSON, so
       // it crosses as a plain array and is rebuilt on the other side.
       await send('device/enable', { credentialId, rpId, prfOutput: Array.from(prfOutput) });
-      setStatus({ enabled: true, credentialId, rpId });
+
+      setStep('Confirming…');
+      // Read back rather than assumed. Showing "Enabled" from a local flag
+      // is how this silently reverted: the UI claimed success while nothing
+      // had been stored.
+      const confirmed = await send('device/status');
+      if (confirmed.enabled !== true) {
+        throw new Error('the vault did not record the credential — try again');
+      }
+
+      setStatus(confirmed);
+      setStep(null);
     } catch (caught) {
+      console.error('[keyvault] device unlock setup failed', caught);
       setError(caught.message);
+      setStep(null);
     } finally {
       setBusy(false);
     }
@@ -136,6 +156,12 @@ export function DeviceUnlockSection() {
             </Button>
           )}
         </>
+      )}
+
+      {step !== null && (
+        <p className="mt-2 text-xs text-[var(--color-fg-muted)]" aria-live="polite">
+          {step}
+        </p>
       )}
 
       {error !== null && (
