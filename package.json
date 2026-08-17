@@ -16,7 +16,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "build": "node scripts/build.js",
-    "dev": "vite"
+    "dev": "vite",
+    "package": "npm run build && node scripts/package.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

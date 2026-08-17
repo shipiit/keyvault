@@ -99,89 +99,66 @@ onboarding pushes so hard on choosing one that will be remembered.
 
 ---
 
-## Stage 3 — UI 🟡 in progress
+## Done
 
-**Done:** Tailwind v4 token layer (light/dark from one set, following the system
-theme), popup shell, onboarding with the unrecoverable-vault acknowledgement,
-unlock screen, searchable credential list with live TOTP and countdown ring,
-offline password strength, opt-in breach checking.
+Stages 1 to 3 are complete, and most of stage 4. Working today:
 
-**Remaining:**
+- Encrypted vault, auto-lock, master password change
+- Autofill on page load, in-field badge with a login picker
+- Save prompt that survives a navigation and only asks when something changed
+- Two-factor: QR scanning, key parsing, live codes, verification-page fill
+- Password generator, as a page and inside the badge menu
+- Security score, opt-in breach checking
+- Encrypted backup, restore, and importers for the major managers
+- Settings for everything above
 
-- Full-page vault manager: list/detail, folders, tags, bulk actions
-- Password generator UI
-- Settings: auto-lock interval, per-site rules, generator defaults, breach-check
-  opt-in toggle
-- Entry create/edit form
-- Component tests with Preact Testing Library
+## To do
 
-Original scope, for reference:
+Ordered by what would be felt first.
 
-- `tokens.css` — colour, spacing, radius, shadow and motion scales. Light and
-  dark derived from one token set. No hardcoded hex or raw pixel values.
-- Onboarding: master password creation with a strength meter and an explicitly
-  acknowledged warning that a lost master password means an unrecoverable vault
-- Popup: search, entries for the current site surfaced first, one-click copy,
-  live TOTP with a countdown ring, clipboard auto-clear after 30 s
-- Full-page vault: list/detail, folders, tags, bulk actions
-- Password generator with a live strength estimate
-- Settings: auto-lock interval, per-site rules, generator defaults, theme
-- Keyboard navigable throughout; motion suppressed under
-  `prefers-reduced-motion`
+### 1. Trash with undo
 
-**Done when:** the extension is usable as a manual password manager — everything
-works via copy and paste, without autofill.
+Deleting is permanent, and nothing holds a copy. This is the only remaining
+way to lose data through ordinary use, so it goes first. Soft-delete with a
+`deletedAt` stamp, a Trash view that restores, and a purge that is explicit.
 
----
+### 2. End-to-end tests
 
-## Stage 4 — Web integration
+The largest gap in the project. Six hundred tests, none of which load the
+extension in a browser — and every bug found in real use was of a kind they
+structurally could not catch: a blank popup from absolute asset paths, an
+`import` in a content script, a save prompt lost to a message sent during
+unload, a two-factor secret read from the page heading. Playwright with the
+extension loaded, covering the flows a person actually performs.
 
-The riskiest stage. Everything here touches untrusted pages.
+### 3. Watchtower view
 
-**Field detection** — heuristic scoring over `autocomplete` attributes (weighted
-highest), input types, `name`/`id`/`placeholder`/`aria-label`, and nearby label
-text. Must handle username+password, password-only second-step logins, and
-signup forms with a confirm-password field.
+The security score is computed but not clickable. The weak, reused and
+breached lists exist in the data and have nowhere to be shown.
 
-**Filling** — must use the native value setter:
+### 4. Show a QR to move a credential to a phone
 
-```js
-Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, value);
-el.dispatchEvent(new Event('input', { bubbles: true }));
-el.dispatchEvent(new Event('change', { bubbles: true }));
-```
+The reverse of scanning. Needs a QR _encoder_, which is a few hundred lines
+and has no dependency worth taking for it.
 
-A plain `el.value = value` does not trigger React or Vue reactivity: the field
-looks filled, and the app submits an empty string. This is the single most common
-autofill bug and needs a dedicated regression test against a React fixture page.
+### 5. Item types beyond logins
 
-**Domain matching** — registrable domain (eTLD+1) via the Public Suffix List, so
-`login.bank.com` matches `bank.com` but `bank.com.evil.co` does not.
+Cards, identities and documents can be created but are given login fields.
+Each needs its own shape — a card wants a number, expiry and security code.
 
-**Save prompt** — a shadow-DOM banner, so host page styles cannot affect it.
+### 6. Folders
 
-**Auto-login** — per-entry opt-in only, never in cross-origin iframes without an
-explicit per-site opt-in.
+The data model carries them and nothing uses them.
 
-**QR scanning** — screen-region capture via `chrome.tabs.captureVisibleTab`, plus
-image upload and paste. _Open question:_ Chrome's native `BarcodeDetector` is
-unreliable on macOS desktop. Probe `'BarcodeDetector' in self` before building;
-if absent, bundle `jsQR` (~35 KB, MIT) behind the same `decodeQr(imageData)`
-interface so the choice is invisible to callers. This is the largest single
-addition to bundle size.
+### 7. Change the master password from the UI
 
-**Import / export** — encrypted `.keyvault` files, plus importers for 1Password,
-Bitwarden, LastPass and Chrome CSV, each an isolated module tested against real
-fixture files.
+The handler exists and is tested; there is no way to reach it.
 
-**Security tests required before this stage ships:**
+### 8. Touch ID unlock
 
-- A content script cannot read the session key
-- No fill occurs on a domain mismatch
-- No fill occurs in a cross-origin iframe without opt-in
-- No auto-submit occurs unless that specific entry opted in
-
----
+Built but unproven — see above. It needs a working PRF-capable authenticator,
+and if Chrome's macOS one cannot do it, the honest resolution is to remove
+the feature rather than leave a button that fails.
 
 ## Before any public release
 

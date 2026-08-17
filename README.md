@@ -155,18 +155,21 @@ Full detail and vulnerability reporting: [`SECURITY.md`](SECURITY.md).
 The work is split into four stages, each of which produces something verifiable
 on its own.
 
-| Stage                   | Contents                                                 | Status                                                                    |
-| ----------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| **1 — Core**            | Crypto, TOTP, vault data model, CI                       | ✅ **Complete**                                                           |
-| **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging       | ✅ **Complete** — loadable in Chrome                                      |
-| **3 — UI**              | Design system, popup, onboarding, strength, breach check | 🟡 **In progress** — popup done; vault page, generator, settings remain   |
-| **4 — Web integration** | Autofill, save prompt, auto-login                        | 🟡 **In progress** — filling and saving work; QR and import/export remain |
+| Stage                   | Contents                                               | Status                                              |
+| ----------------------- | ------------------------------------------------------ | --------------------------------------------------- |
+| **1 — Core**            | Crypto, TOTP, vault data model, CI                     | ✅ **Complete**                                     |
+| **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging     | ✅ **Complete** — loadable in Chrome                |
+| **3 — UI**              | Design system, popup, vault page, settings, generator  | ✅ **Complete**                                     |
+| **4 — Web integration** | Autofill, save prompt, auto-login, 2FA, backup, import | 🟡 **Mostly done** — see [`ROADMAP.md`](ROADMAP.md) |
 
-**What this means today:** the extension loads and works on real sites. It fills
-login forms, offers to save credentials when you log in, generates 2FA codes, and
-can auto-submit for entries you opt in. Still to come: the full-page vault
-manager, the password generator UI, settings, QR-code scanning, and
-import/export.
+**What this means today:** the extension is usable day to day. It fills logins
+as pages load, offers to save what you type, reads two-factor setup codes from a
+QR image or the key beside it, fills the verification page, generates passwords,
+and exports an encrypted backup.
+
+It is still **not audited**, and there are no end-to-end tests — every test runs
+against the code rather than against a browser with the extension loaded. Both
+are recorded in [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
@@ -245,7 +248,9 @@ can still be consistently wrong.
 ```sh
 npm install
 npm run dev            # preview the UI in a browser tab, no extension reload
-npm test               # 408 tests
+npm run build          # produce dist/, the folder Chrome loads
+npm run package        # zip dist/ for moving to another machine
+npm test               # 648 tests
 npm run test:watch
 npm run test:coverage  # thresholds enforced: 95% lines/functions, 90% branches
 npm run lint

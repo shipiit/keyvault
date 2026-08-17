@@ -27,7 +27,12 @@ For the browser, open `chrome://version` — the first line is the version.
 
 ---
 
-## Step 1 — Build it
+## Step 1 — Get the extension folder
+
+Chrome installs an unpacked extension from a **folder**, not a file. It cannot
+open a `.zip` directly, so whichever route you take ends with a folder on disk.
+
+### Route A — build it yourself (recommended)
 
 ```sh
 git clone https://github.com/shipiit/keyvault.git
@@ -39,15 +44,45 @@ npm run build
 You should see:
 
 ```
-Built dist/ — 38 files
+Built dist/ — 40 files
 ```
 
-The `dist/` folder that appears **is** the extension. Note where it is — you
-will point the browser at it in a moment. To print the exact path:
+The `dist/` folder that appears **is** the extension. To print its exact path:
 
 ```sh
 cd dist && pwd
 ```
+
+This is the route to prefer: you can read what you are about to install, and
+`dist/` is a plain copy of `src/` apart from the compiled UI.
+
+### Route B — download the repository as a zip
+
+If you would rather not use git:
+
+1. Open <https://github.com/shipiit/keyvault>
+2. Click the green **Code** button → **Download ZIP**
+3. Unzip it, then in Terminal:
+
+```sh
+cd ~/Downloads/keyvault-main
+npm install
+npm run build
+```
+
+The `dist/` folder appears in the same place.
+
+### Route C — install a packaged build
+
+To move a build to another machine, package it on the machine that built it:
+
+```sh
+npm run package
+```
+
+That writes `keyvault-<version>.zip` in the project root. Copy it across,
+**unzip it**, and load the unzipped folder. The zip itself cannot be loaded —
+that is the step people miss.
 
 ---
 
@@ -83,6 +118,10 @@ Click **Load unpacked**, then select the **`dist` folder**.
 
 Select the folder itself — do not open it and pick a file inside, and do not
 select the project root. A KeyVault card should appear on the page.
+
+The folder has to stay where it is. Chrome loads an unpacked extension from
+that path every time it starts, so moving or deleting it breaks the extension
+— though not your vault, which lives in Chrome's own storage.
 
 ---
 
@@ -124,9 +163,20 @@ username, password and site, the same way Chrome's built-in manager does.
 **Filling a password** — open the popup on a site you have saved. Matching items
 appear first, under "For this site".
 
-**Auto-login** is off for every item until you turn it on for that specific item,
-in the item's edit panel. It is off by default because a look-alike domain could
-otherwise capture a login before you notice.
+**The badge in the field** — a KeyVault shield appears inside login fields.
+Click it to pick which saved login to fill, or to generate a password.
+
+**Two-factor codes** — the verification page fills itself. KeyVault reads the
+setup key when you first turn on 2FA, from the QR code or the key printed
+beside it.
+
+**Generating a password** — the **Generator** entry in the sidebar, or the
+badge in any password field.
+
+**Auto-login** is off for every item until you turn it on for that specific
+item, in the item's edit panel. It is off by default because a look-alike
+domain could otherwise capture a login before you notice. Turning it on also
+submits the two-factor page.
 
 ---
 
