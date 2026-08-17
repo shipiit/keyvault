@@ -178,17 +178,16 @@ are recorded in [`ROADMAP.md`](ROADMAP.md).
 Full step-by-step guide, including every Chromium browser and troubleshooting:
 **[`INSTALL.md`](INSTALL.md)**
 
-The short version:
+One command — it clones, builds, and prints the folder to load:
 
 ```sh
-git clone https://github.com/shipiit/keyvault.git
-cd keyvault
-npm install
-npm run build
+git clone https://github.com/shipiit/keyvault.git && cd keyvault && npm install && npm run build && echo && echo "Load this folder in Chrome:" && cd dist && pwd
 ```
 
 Then open `chrome://extensions`, turn on **Developer mode**, click **Load
-unpacked**, and select the **`dist` folder**.
+unpacked**, and select the folder that command printed.
+
+Requires Node 20+ and Chromium 116+.
 
 ### Browser support
 

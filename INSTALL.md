@@ -34,24 +34,27 @@ open a `.zip` directly, so whichever route you take ends with a folder on disk.
 
 ### Route A — build it yourself (recommended)
 
+One command. Paste it into Terminal:
+
+```sh
+git clone https://github.com/shipiit/keyvault.git && cd keyvault && npm install && npm run build && echo && echo "Load this folder in Chrome:" && cd dist && pwd
+```
+
+It clones, installs, builds, and prints the exact folder path to select in
+Chrome. Copy that path — the last line — and use it in Step 4.
+
+Step by step, if you would rather see each part:
+
 ```sh
 git clone https://github.com/shipiit/keyvault.git
 cd keyvault
 npm install
 npm run build
-```
-
-You should see:
-
-```
-Built dist/ — 40 files
-```
-
-The `dist/` folder that appears **is** the extension. To print its exact path:
-
-```sh
 cd dist && pwd
 ```
+
+Either way you should see `Built dist/ — 40 files`. The `dist/` folder that
+appears **is** the extension.
 
 This is the route to prefer: you can read what you are about to install, and
 `dist/` is a plain copy of `src/` apart from the compiled UI.
