@@ -95,29 +95,38 @@ export function describeExposure(occurrences) {
         'safe, only that it has not been seen leaking.',
     };
   }
+  // The count is of *accounts*, and naming them is what stops the number
+  // being read as "you were breached 14,601 times". Almost every one of them
+  // belongs to a stranger who happened to choose the same password, which is
+  // why this can read as alarming while a search for the user's own email
+  // comes back completely clean. Both are true at once, and the phrasing has
+  // to survive being read on its own, without the explanation underneath.
   if (occurrences < 10) {
     return {
       severity: 'low',
-      title: `Seen ${occurrences} time${occurrences === 1 ? '' : 's'} in breach data`,
+      title: `Found in ${occurrences} breached account${occurrences === 1 ? '' : 's'}`,
       detail:
-        'This password has appeared in a data breach. It is already in attacker wordlists. ' +
+        'Other people chose this same password, and their accounts leaked. That puts it in ' +
+        'attacker wordlists, so it is now guessable whether or not you were ever breached. ' +
         'Change it wherever you use it.',
     };
   }
   if (occurrences < 10000) {
     return {
       severity: 'high',
-      title: `Seen ${occurrences.toLocaleString()} times in breach data`,
+      title: `Found in ${occurrences.toLocaleString()} breached accounts`,
       detail:
-        'This password is well known to attackers and would be tried early in any credential ' +
-        'stuffing attack. Change it now.',
+        'That many other people picked this same password and had it leak. It is well known to ' +
+        'attackers and would be tried early in any credential stuffing attack — not because ' +
+        'your account leaked, but because the password itself is now public. Change it now.',
     };
   }
   return {
     severity: 'critical',
-    title: `Seen ${occurrences.toLocaleString()} times in breach data`,
+    title: `Found in ${occurrences.toLocaleString()} breached accounts`,
     detail:
-      'This is among the most commonly breached passwords in existence. An attacker will try ' +
-      'it within the first seconds of an attack. Change it immediately.',
+      'This is among the most commonly chosen passwords in existence, which is why so many ' +
+      'other people had it leak. An attacker guessing it needs no breach of yours at all — it ' +
+      'sits near the top of every wordlist. Change it immediately.',
   };
 }

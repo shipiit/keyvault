@@ -188,6 +188,32 @@ describe('describeExposure', () => {
     expect(describeExposure(0).detail).toMatch(/not proof/i);
   });
 
+  it('says whose accounts the count refers to, in the headline itself', () => {
+    // "Seen 14,601 times in breach data" was read as "you were breached
+    // 14,601 times", by someone whose email search on Have I Been Pwned had
+    // just come back completely clean. The headline is often all that gets
+    // read, so it has to name the accounts as accounts — the explanation
+    // underneath arrives too late to undo the first impression.
+    const title = describeExposure(14601).title;
+    expect(title).toMatch(/accounts/i);
+    expect(title).not.toMatch(/times/i);
+  });
+
+  it('explains that a clean email search and a large count agree', () => {
+    // These look contradictory and are not: the leaked accounts belong to
+    // other people who chose the same password.
+    const detail = describeExposure(14601).detail.toLowerCase();
+    expect(detail).toMatch(/other people|others|strangers|not because your account/);
+  });
+
+  it('keeps the advice to change it, even while explaining it was not your breach', () => {
+    // The reassurance must not talk the user out of acting: a guessable
+    // password is a live risk regardless of whose account leaked.
+    for (const count of [1, 500, 14601, 9659365]) {
+      expect(describeExposure(count).detail).toMatch(/change it/i);
+    }
+  });
+
   it('formats large counts using locale digit grouping', () => {
     // Grouping differs by locale (9,659,365 vs 96,59,365), which is correct
     // behaviour, so assert that grouping happened rather than its exact shape.

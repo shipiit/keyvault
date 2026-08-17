@@ -167,11 +167,33 @@ function BreachResult({ result }) {
             leaked but not which site leaked it. Implying otherwise would be
             the more comfortable copy and the wrong one. */}
         <p className="mt-1 text-xs leading-relaxed text-[var(--color-fg-subtle)]">
-          Counted across the public breach corpus published by Have I Been Pwned. It says how many
-          times this <em>password</em> has appeared in a leak anywhere — not that your account was
-          breached, and not which site it leaked from. Only the first five characters of its hash
-          left this device; the password never did.
+          Counted across the public breach corpus published by Have I Been Pwned, by searching for
+          the <em>password</em> rather than for you. Only the first five characters of its hash left
+          this device; the password never did.
         </p>
+
+        {/* Checking an email on Have I Been Pwned and getting "no pwnage
+            found" while this says thousands looks like one of the two must
+            be wrong. Both are right, and the reconciliation is the single
+            most useful thing this panel can say — so it is stated outright
+            rather than left to be inferred from "not that your account was
+            breached", which people reasonably read as reassurance and stop
+            there. */}
+        {result.breached && (
+          <div className="mt-2 rounded-[var(--radius-field)] bg-[var(--color-panel)] p-3">
+            <p className="text-xs font-semibold">This does not mean your account was breached</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--color-fg-muted)]">
+              Your email can come back completely clean on Have I Been Pwned while this number is in
+              the thousands. Both are true: those are other people&rsquo;s accounts, and they
+              happened to choose the same password as you.
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-[var(--color-fg-muted)]">
+              It still needs changing. Your front door was never forced — but the key turns out to
+              be a model sold in every hardware shop, and the burglars have the catalogue. An
+              attacker works down that list without needing to breach anything of yours first.
+            </p>
+          </div>
+        )}
 
         {/* The obvious next question is "which site?", and the corpus simply
             cannot answer it: it is a list of password hashes and counts,
