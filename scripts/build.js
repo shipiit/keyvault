@@ -82,6 +82,32 @@ for (const relative of referenced) {
   }
 }
 
+// Verify that every asset the built HTML references actually resolves.
+//
+// Vite emits absolute paths by default, which silently break inside an
+// extension because the pages are not served from the root. That failure
+// shows up only as a blank popup at runtime, so it is caught here instead.
+for (const page of ['ui/popup.html', 'ui/vault.html']) {
+  const pagePath = join(dist, page);
+  const html = await readFile(pagePath, 'utf8');
+
+  for (const [, reference] of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
+    if (/^(https?:|data:|#)/.test(reference)) {
+      continue;
+    }
+    if (reference.startsWith('/')) {
+      throw new Error(
+        `${page} references "${reference}" with an absolute path. ` +
+          'Extension pages are not served from the root — set `base` in vite.config.js.',
+      );
+    }
+    const resolved = join(dirname(pagePath), reference);
+    if (!existsSync(resolved)) {
+      throw new Error(`${page} references "${reference}", which does not exist in dist/`);
+    }
+  }
+}
+
 const files = await listFiles(dist);
 console.warn(`Built dist/ — ${files.length} files`);
 console.warn('Load it with: chrome://extensions → Developer mode → Load unpacked → dist/');

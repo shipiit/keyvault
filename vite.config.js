@@ -16,6 +16,13 @@ import { resolve } from 'node:path';
  */
 export default defineConfig({
   root: resolve(import.meta.dirname, 'src/ui'),
+  // Relative asset paths, not Vite's default absolute ones.
+  //
+  // The pages live at `ui/popup.html` inside the extension, so an absolute
+  // `/assets/app.js` resolves to `chrome-extension://<id>/assets/app.js` —
+  // the extension root — while the files are actually under `ui/assets/`.
+  // The result is a blank popup and ERR_FILE_NOT_FOUND in the console.
+  base: './',
   plugins: [preact(), tailwind()],
   build: {
     outDir: resolve(import.meta.dirname, 'dist/ui'),
