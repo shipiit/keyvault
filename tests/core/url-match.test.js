@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  toOrigin,
   toHostname,
   hostMatches,
   entryMatchesUrl,
@@ -42,6 +43,37 @@ describe('toHostname', () => {
     expect(toHostname('   ')).toBeNull();
     expect(toHostname(null)).toBeNull();
     expect(toHostname('https://')).toBeNull();
+  });
+});
+
+describe('toOrigin', () => {
+  it('keeps the port, unlike toHostname', () => {
+    // Dropping the port collapses localhost:5173 and localhost:3000 into
+    // one entry, and on a dev machine those are different applications.
+    expect(toOrigin('http://localhost:5173/login')).toBe('http://localhost:5173');
+    expect(toHostname('http://localhost:5173/login')).toBe('localhost');
+  });
+
+  it('keeps the scheme it was given', () => {
+    expect(toOrigin('http://insecure.example/x')).toBe('http://insecure.example');
+    expect(toOrigin('https://secure.example/x')).toBe('https://secure.example');
+  });
+
+  it('drops the path and query', () => {
+    expect(toOrigin('https://github.com/login?next=/a')).toBe('https://github.com');
+  });
+
+  it('assumes https for a bare host', () => {
+    expect(toOrigin('github.com')).toBe('https://github.com');
+  });
+
+  it('rejects non-web and malformed values', () => {
+    expect(toOrigin('javascript:alert(1)')).toBeNull();
+    expect(toOrigin('chrome://extensions')).toBeNull();
+    expect(toOrigin('')).toBeNull();
+    expect(toOrigin('   ')).toBeNull();
+    expect(toOrigin(null)).toBeNull();
+    expect(toOrigin('https://')).toBeNull();
   });
 });
 

@@ -6,7 +6,7 @@ import {
   findEntry,
   searchEntries,
 } from '../core/vault-data.js';
-import { entriesForUrl, entryMatchesUrl, toHostname } from '../core/url-match.js';
+import { entriesForUrl, entryMatchesUrl, toHostname, toOrigin } from '../core/url-match.js';
 import { generateTotp, totpTimeRemaining } from '../core/totp.js';
 import { parseOtpauthUri } from '../core/totp.js';
 import { computeSecurityScore } from '../core/security-score.js';
@@ -51,6 +51,17 @@ function withParsedTotp(fields) {
     },
   };
 }
+
+/** Session key holding a credential captured just before a navigation. */
+const PENDING_KEY = 'keyvault.pendingCredential';
+
+/**
+ * How long a stashed credential stays claimable.
+ *
+ * Long enough to survive a login redirect chain, short enough that a
+ * password is not left sitting in memory after the user has moved on.
+ */
+const PENDING_TTL_MS = 60000;
 
 /** Raised when a caller asks for something its context is not allowed to do. */
 export class NotAuthorizedError extends KeyVaultError {}
@@ -329,6 +340,63 @@ export function createMessageRouter({
       },
     },
 
+    'credentials/stash': {
+      contentScript: true,
+      /**
+       * Hold a submitted credential across a navigation.
+       *
+       * A normal form POST unloads the page, taking the content script and
+       * its captured credential with it. Without this the save prompt only
+       * ever worked on single-page apps — which is to say, it mostly did not
+       * work at all.
+       *
+       * Stored in `chrome.storage.session`: memory-only, cleared when the
+       * browser closes, and restricted to trusted contexts so no page can
+       * read it. It is the password the user just typed into that page, so
+       * this adds no exposure the page did not already have, and it expires
+       * in well under a minute.
+       */
+      handle: async ({ url, title, username, password }) => {
+        const origin = toOrigin(url);
+        if (origin === null || typeof password !== 'string' || password === '') {
+          return { stashed: false };
+        }
+        await chrome.storage.session.set({
+          [PENDING_KEY]: { origin, url, title, username, password, at: now() },
+        });
+        return { stashed: true };
+      },
+    },
+
+    'credentials/pending': {
+      contentScript: true,
+      /**
+       * Collect a credential stashed before a navigation, if it belongs to
+       * the page now asking and is recent.
+       *
+       * Origin-checked on this side rather than trusted from the caller: a
+       * page must not be able to collect a credential submitted to a
+       * different site. Consumed on read, so it can only be claimed once.
+       */
+      handle: async ({ url }) => {
+        const origin = toOrigin(url);
+        const stored = await chrome.storage.session.get(PENDING_KEY);
+        const pending = stored[PENDING_KEY];
+
+        if (pending === undefined) {
+          return { pending: null };
+        }
+        // Always clear, even on a mismatch: a stash nobody can claim is just
+        // a password sitting in memory.
+        await chrome.storage.session.remove(PENDING_KEY);
+
+        if (pending.origin !== origin || now() - pending.at > PENDING_TTL_MS) {
+          return { pending: null };
+        }
+        return { pending };
+      },
+    },
+
     'credentials/save': {
       contentScript: true,
       /**
@@ -347,7 +415,8 @@ export function createMessageRouter({
        */
       handle: async ({ url, title, username, password }) => {
         const host = toHostname(url);
-        if (host === null) {
+        const origin = toOrigin(url);
+        if (host === null || origin === null) {
           throw new NotAuthorizedError('refusing to save a credential for a non-web origin');
         }
         if (typeof password !== 'string' || password === '') {
@@ -378,7 +447,10 @@ export function createMessageRouter({
             title: typeof title === 'string' && title.trim() !== '' ? title.trim() : host,
             username: username ?? '',
             password,
-            urls: [`https://${host}`],
+            // The full origin, scheme and port included. Storing a bare
+            // `https://host` loses the port, and on a dev machine
+            // localhost:5173 and localhost:3000 are different applications.
+            urls: [origin],
           },
           now(),
         );

@@ -7,6 +7,36 @@
  */
 
 /**
+ * The full origin of a URL: scheme, host, and port.
+ *
+ * Used for *storing* an entry's site, where `toHostname` is used for
+ * matching. The distinction matters: dropping the port collapses
+ * `localhost:5173` and `localhost:3000` into one entry, and on a dev machine
+ * those are entirely different applications.
+ *
+ * @param {string} value
+ * @returns {string|null}
+ */
+export function toOrigin(value) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return null;
+  }
+  const raw = value.trim();
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+  let url;
+  try {
+    url = new URL(candidate);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    return null;
+  }
+  return url.hostname === '' ? null : url.origin;
+}
+
+/**
  * Extract a comparable hostname from a stored URL or a bare host string.
  *
  * Entries are often saved as `github.com` rather than `https://github.com`,

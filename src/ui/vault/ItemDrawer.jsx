@@ -5,6 +5,7 @@ import { Field } from '../components/Field.jsx';
 import { GeneratorPopover } from './GeneratorPopover.jsx';
 import { assessPassword } from '../../core/password-strength.js';
 import { parseOtpauthUri } from '../../core/totp.js';
+import { scanActiveTabForTotp } from '../lib/messaging.js';
 
 const TYPES = [
   { id: 'login', label: 'Login', icon: Icon.Lock },
@@ -38,6 +39,7 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
   const [revealed, setRevealed] = useState(false);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [scan, setScan] = useState({ status: 'idle' });
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -263,14 +265,57 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
             </label>
 
             {showTotp && (
-              <Field
-                label="Setup key or otpauth:// URI"
-                value={values.totpUri}
-                placeholder="otpauth://totp/… or the secret"
-                error={errors.totpUri ?? null}
-                hint="Paste the code shown next to the QR image on the site's 2FA page."
-                onInput={set('totpUri')}
-              />
+              <div className="flex flex-col gap-2">
+                <Field
+                  label="Setup key or otpauth:// URI"
+                  value={values.totpUri}
+                  placeholder="otpauth://totp/… or the secret"
+                  error={errors.totpUri ?? null}
+                  onInput={set('totpUri')}
+                />
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={scan.status === 'scanning'}
+                  onClick={async () => {
+                    setScan({ status: 'scanning' });
+                    const result = await scanActiveTabForTotp();
+                    if (result.found) {
+                      setValues((current) => ({
+                        ...current,
+                        totpUri: result.uri ?? result.secret,
+                      }));
+                      setErrors((current) => ({ ...current, totpUri: undefined }));
+                      setScan({ status: 'found', source: result.source });
+                    } else {
+                      setScan({ status: 'failed', reason: result.reason });
+                    }
+                  }}
+                >
+                  <Icon.Search className="size-4" />
+                  Scan this page for a QR code
+                </Button>
+
+                <p
+                  className={[
+                    'text-xs leading-relaxed',
+                    scan.status === 'failed'
+                      ? 'text-[var(--color-warn)]'
+                      : 'text-[var(--color-fg-muted)]',
+                  ].join(' ')}
+                  aria-live="polite"
+                >
+                  {scan.status === 'found'
+                    ? scan.source === 'image'
+                      ? 'Found — read from the QR image on the page.'
+                      : 'Found — read from the setup key printed on the page.'
+                    : scan.status === 'failed'
+                      ? scan.reason
+                      : "Open the site's two-factor setup page in the tab behind this one, " +
+                        'then scan — or paste the key yourself.'}
+                </p>
+              </div>
             )}
 
             <Field

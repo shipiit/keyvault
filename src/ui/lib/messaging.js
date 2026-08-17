@@ -102,6 +102,45 @@ export async function getActiveTabUrl() {
 }
 
 /**
+ * Ask the active tab to look for a TOTP setup code on the page.
+ *
+ * Runs only on explicit user action, and only against the tab the user is
+ * looking at. Most 2FA setup pages print the `otpauth://` URI next to the QR
+ * image, so this usually succeeds without decoding anything.
+ *
+ * @returns {Promise<{found: boolean, uri?: string, secret?: string,
+ *                    source?: string, reason?: string}>}
+ */
+export async function scanActiveTabForTotp() {
+  if (useDevMock) {
+    return {
+      found: true,
+      uri: 'otpauth://totp/Demo:you@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Demo',
+      source: 'text',
+    };
+  }
+
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+  if (tab === undefined) {
+    return { found: false, reason: 'no active tab' };
+  }
+
+  try {
+    const result = await api.tabs.sendMessage(tab.id, { type: 'content/scanTotp' });
+    return result ?? { found: false, reason: 'the page did not respond' };
+  } catch {
+    // No content script on this tab — a browser-internal page, or a tab
+    // opened before the extension was installed or reloaded.
+    return {
+      found: false,
+      reason:
+        'KeyVault cannot read this page. Open the page showing the QR code, reload it, ' +
+        'and try again.',
+    };
+  }
+}
+
+/**
  * Copy text, then clear the clipboard after a delay.
  *
  * Clipboard contents are readable by anything the user pastes into next, and

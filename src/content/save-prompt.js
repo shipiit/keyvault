@@ -9,7 +9,15 @@
  *  - Script isolation. A closed root means page script cannot query into it
  *    to read what is displayed or synthesise clicks on its buttons.
  *
- * The banner shows the username and the site, never the password.
+ * The banner shows the password, masked, with a reveal toggle. That adds no
+ * exposure — the user just typed it into this page, so the page already has
+ * it — and it buys the chance to check what is about to be stored. A
+ * detector that picked the wrong field is otherwise invisible until the
+ * saved credential fails to log in, weeks later.
+ *
+ * Every value taken from the page is written with `textContent` or `.value`,
+ * never `innerHTML`, so a page title containing markup cannot inject
+ * anything into the banner.
  */
 
 const HOST_ID = 'keyvault-save-prompt';
@@ -17,57 +25,159 @@ const HOST_ID = 'keyvault-save-prompt';
 /**
  * The banner currently on screen, if any.
  *
- * Held here because the shadow root is closed and therefore unreachable
- * once created — `dismissSavePrompt` needs a handle to it, and so do the
- * tests, which would otherwise have to prise open the isolation this
- * module exists to provide.
+ * Held here because the shadow root is closed and therefore unreachable once
+ * created — `dismissSavePrompt` needs a handle to it, and so do the tests,
+ * which would otherwise have to prise open the isolation this module exists
+ * to provide.
  */
 let current = null;
 
 const STYLES = `
   :host { all: initial; }
+  * { box-sizing: border-box; font-family: inherit; }
   .panel {
     position: fixed; top: 16px; right: 16px; z-index: 2147483647;
-    width: 320px; box-sizing: border-box;
+    width: 360px;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     background: #ffffff; color: #16181d;
-    border: 1px solid #d9dce3; border-radius: 12px;
-    box-shadow: 0 8px 28px rgba(15, 18, 25, 0.16);
-    padding: 14px; display: flex; flex-direction: column; gap: 10px;
+    border: 1px solid #d9dce3; border-radius: 14px;
+    box-shadow: 0 12px 36px rgba(15, 18, 25, 0.18);
+    padding: 16px; display: flex; flex-direction: column; gap: 12px;
     animation: enter 160ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   @keyframes enter { from { opacity: 0; transform: translateY(-6px); } }
   @media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
-  @media (prefers-color-scheme: dark) {
-    .panel { background: #1c1f26; color: #f2f3f6; border-color: #333844;
-             box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5); }
-    .meta { color: #a2a8b8 !important; }
-    .secondary { background: #262a33 !important; color: #f2f3f6 !important;
-                 border-color: #3a4050 !important; }
+
+  .head { display: flex; align-items: center; gap: 10px; }
+  .mark {
+    width: 32px; height: 32px; border-radius: 9px; flex: none;
+    background: #4f46e5; display: grid; place-items: center;
+    color: #fff; font-size: 15px; font-weight: 700;
   }
+  .headings { min-width: 0; }
   .title { font-size: 14px; font-weight: 600; margin: 0; }
-  .meta { font-size: 12px; color: #5a6172; margin: 0;
+  .site { font-size: 12px; color: #5a6172; margin: 0;
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .row { display: flex; gap: 8px; margin-top: 2px; }
-  button {
-    flex: 1; height: 32px; border-radius: 8px; font-size: 13px; font-weight: 500;
-    cursor: pointer; border: 1px solid transparent;
-    font-family: inherit; transition: filter 120ms;
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .label { font-size: 11px; font-weight: 600; color: #5a6172;
+           text-transform: uppercase; letter-spacing: 0.04em; }
+  .control { position: relative; display: flex; }
+  input {
+    width: 100%; height: 34px; padding: 0 34px 0 10px;
+    border: 1px solid #d9dce3; border-radius: 8px;
+    background: #f8f9fb; color: #16181d; font-size: 13px;
   }
-  button:hover { filter: brightness(0.95); }
-  button:active { transform: translateY(1px); }
-  button:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+  input:hover { border-color: #b9bec9; }
+  input:focus-visible { outline: 2px solid #4f46e5; outline-offset: 1px; }
+  input.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  .reveal {
+    position: absolute; right: 2px; top: 2px; width: 30px; height: 30px;
+    display: grid; place-items: center; cursor: pointer;
+    border: 0; background: none; border-radius: 6px; color: #5a6172;
+  }
+  .reveal:hover { background: #eceef2; color: #16181d; }
+  .reveal:focus-visible { outline: 2px solid #4f46e5; outline-offset: 1px; }
+
+  .row { display: flex; gap: 8px; margin-top: 2px; }
+  button.action {
+    flex: 1; height: 36px; border-radius: 9px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: 1px solid transparent;
+  }
+  button.action:hover { filter: brightness(0.96); }
+  button.action:active { transform: translateY(1px); }
+  button.action:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
   .primary { background: #4f46e5; color: #ffffff; }
   .secondary { background: #f4f5f8; color: #16181d; border-color: #d9dce3; }
+
+  @media (prefers-color-scheme: dark) {
+    .panel { background: #1c1f26; color: #f2f3f6; border-color: #333844;
+             box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55); }
+    .site, .label { color: #a2a8b8; }
+    input { background: #23262e; border-color: #3a4050; color: #f2f3f6; }
+    input:hover { border-color: #4c5364; }
+    .reveal { color: #a2a8b8; }
+    .reveal:hover { background: #2c303a; color: #f2f3f6; }
+    .secondary { background: #262a33; color: #f2f3f6; border-color: #3a4050; }
+  }
 `;
 
+const EYE_PATH = 'M1.5 10S4.8 4.5 10 4.5 18.5 10 18.5 10 15.2 15.5 10 15.5 1.5 10 1.5 10Z';
+
+/** @param {boolean} struck */
+function eyeIcon(struck) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 20 20');
+  svg.setAttribute('width', '15');
+  svg.setAttribute('height', '15');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.6');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+
+  const outline = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  outline.setAttribute('d', EYE_PATH);
+
+  const pupil = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  pupil.setAttribute('cx', '10');
+  pupil.setAttribute('cy', '10');
+  pupil.setAttribute('r', '2.5');
+
+  svg.append(outline, pupil);
+  if (struck) {
+    const slash = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    slash.setAttribute('d', 'M3 3l14 14');
+    svg.append(slash);
+  }
+  return svg;
+}
+
 /**
- * Show the banner. Resolves with the user's choice.
+ * Build a labelled input row.
  *
- * @param {{title: string, username: string, isUpdate: boolean}} details
- * @returns {Promise<'save'|'dismiss'>}
+ * @param {{label: string, value: string, mono?: boolean, type?: string}} config
  */
-export function showSavePrompt({ title, username, isUpdate }) {
+function buildField({ label, value, mono = false, type = 'text' }) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'field';
+
+  const caption = document.createElement('span');
+  caption.className = 'label';
+  caption.textContent = label;
+
+  const control = document.createElement('div');
+  control.className = 'control';
+
+  const input = document.createElement('input');
+  input.type = type;
+  input.value = value ?? '';
+  input.setAttribute('aria-label', label);
+  if (mono) {
+    input.className = 'mono';
+  }
+  // Keep other password managers, the browser's own included, away from a
+  // field that already holds a captured credential.
+  input.setAttribute('autocomplete', 'off');
+  input.setAttribute('data-1p-ignore', '');
+  input.setAttribute('data-lpignore', 'true');
+
+  control.append(input);
+  wrapper.append(caption, control);
+  return { wrapper, control, input };
+}
+
+/**
+ * Show the banner. Resolves with the user's choice and the final values,
+ * which the user may have corrected before saving.
+ *
+ * @param {{title: string, site: string, username: string, password: string,
+ *          isUpdate: boolean}} details
+ * @returns {Promise<{action: 'save'|'dismiss', title: string, username: string,
+ *                    password: string}>}
+ */
+export function showSavePrompt({ title, site, username, password, isUpdate }) {
   dismissSavePrompt();
 
   return new Promise((resolve) => {
@@ -82,44 +192,108 @@ export function showSavePrompt({ title, username, isUpdate }) {
     const panel = document.createElement('div');
     panel.className = 'panel';
     panel.setAttribute('role', 'dialog');
-    panel.setAttribute('aria-label', 'KeyVault save password');
+    panel.setAttribute('aria-label', isUpdate ? 'Update saved password' : 'Save password');
+
+    const head = document.createElement('div');
+    head.className = 'head';
+
+    const mark = document.createElement('span');
+    mark.className = 'mark';
+    mark.textContent = (site || title || '?').slice(0, 1).toUpperCase();
+    mark.setAttribute('aria-hidden', 'true');
+
+    const headings = document.createElement('div');
+    headings.className = 'headings';
 
     const heading = document.createElement('p');
     heading.className = 'title';
     heading.textContent = isUpdate ? 'Update saved password?' : 'Save password to KeyVault?';
 
-    const meta = document.createElement('p');
-    meta.className = 'meta';
-    // textContent, never innerHTML: `title` and `username` come from the page.
-    meta.textContent = username === '' ? title : `${username} — ${title}`;
+    const siteLine = document.createElement('p');
+    siteLine.className = 'site';
+    siteLine.textContent = site;
+
+    headings.append(heading, siteLine);
+    head.append(mark, headings);
+
+    const titleField = buildField({ label: 'Name', value: title });
+    const userField = buildField({ label: 'Username', value: username });
+    const passField = buildField({
+      label: 'Password',
+      value: password,
+      mono: true,
+      type: 'password',
+    });
+
+    // Reveal starts off: the banner appears over whatever the user is looking
+    // at, which may not be a private setting.
+    const reveal = document.createElement('button');
+    reveal.type = 'button';
+    reveal.className = 'reveal';
+    reveal.append(eyeIcon(false));
+    reveal.setAttribute('aria-label', 'Show password');
+    reveal.setAttribute('aria-pressed', 'false');
+    reveal.addEventListener('click', () => {
+      const wasShown = passField.input.type === 'text';
+      passField.input.type = wasShown ? 'password' : 'text';
+      reveal.replaceChildren(eyeIcon(!wasShown));
+      reveal.setAttribute('aria-label', wasShown ? 'Show password' : 'Hide password');
+      reveal.setAttribute('aria-pressed', String(!wasShown));
+    });
+    passField.control.append(reveal);
 
     const row = document.createElement('div');
     row.className = 'row';
 
-    const finish = (choice) => {
+    const finish = (action) => {
+      const result = {
+        action,
+        title: titleField.input.value.trim(),
+        username: userField.input.value,
+        password: passField.input.value,
+      };
       host.remove();
       current = null;
-      resolve(choice);
+      resolve(result);
     };
 
     const notNow = document.createElement('button');
-    notNow.className = 'secondary';
+    notNow.className = 'action secondary';
     notNow.type = 'button';
     notNow.textContent = 'Not now';
     notNow.addEventListener('click', () => finish('dismiss'));
 
     const save = document.createElement('button');
-    save.className = 'primary';
+    save.className = 'action primary';
     save.type = 'button';
     save.textContent = isUpdate ? 'Update' : 'Save';
     save.addEventListener('click', () => finish('save'));
 
+    panel.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        finish('dismiss');
+      }
+      if (event.key === 'Enter' && event.target !== notNow) {
+        finish('save');
+      }
+    });
+
     row.append(notNow, save);
-    panel.append(heading, meta, row);
+    panel.append(head, titleField.wrapper, userField.wrapper, passField.wrapper, row);
     shadow.append(style, panel);
     document.documentElement.append(host);
 
-    current = { host, panel, meta, saveButton: save, dismissButton: notNow };
+    current = {
+      host,
+      panel,
+      siteLine,
+      titleInput: titleField.input,
+      usernameInput: userField.input,
+      passwordInput: passField.input,
+      revealButton: reveal,
+      saveButton: save,
+      dismissButton: notNow,
+    };
     save.focus();
   });
 }

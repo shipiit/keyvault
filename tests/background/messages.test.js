@@ -229,6 +229,21 @@ describe('message router', () => {
       expect(list.data.entries[0].urls).toEqual(['https://github.com']);
     });
 
+    it('keeps the port, so localhost apps are separate entries', async () => {
+      // Storing a bare https://host drops the port, collapsing
+      // localhost:5173 and localhost:3000 into one entry.
+      await save({ url: 'http://localhost:5173/login', username: 'u', password: 'p' });
+      const list = await send('entries/list');
+      expect(list.data.entries[0].urls).toEqual(['http://localhost:5173']);
+    });
+
+    it('keeps the scheme it was saved under', async () => {
+      await save({ url: 'http://insecure.example/login', username: 'u', password: 'p' });
+      expect((await send('entries/list')).data.entries[0].urls).toEqual([
+        'http://insecure.example',
+      ]);
+    });
+
     it('refuses to save for a non-web origin', async () => {
       const res = await save({ url: 'javascript:alert(1)', username: 'u', password: 'p' });
       expect(res.ok).toBe(false);
@@ -283,6 +298,86 @@ describe('message router', () => {
       const res = await save({ url: 'https://github.com', username: 'u', password: 'p' });
       expect(res.ok).toBe(false);
       expect(res.error.name).toBe('VaultLockedError');
+    });
+  });
+
+  describe('surviving a navigation', () => {
+    // A normal form POST unloads the page and the content script with it.
+    // Without a stash the save prompt only ever worked on single-page apps.
+    const stash = (payload) => router.handle({ type: 'credentials/stash', payload }, PAGE);
+    const collect = (url, sender = PAGE) =>
+      router.handle({ type: 'credentials/pending', payload: { url } }, sender);
+
+    const submission = {
+      url: 'https://github.com/session',
+      title: 'GitHub',
+      username: 'rahul@example.com',
+      password: 'S3cr3t!',
+    };
+
+    it('hands a stashed credential back to the same origin', async () => {
+      await stash(submission);
+      const res = await collect('https://github.com/dashboard');
+
+      expect(res.ok).toBe(true);
+      expect(res.data.pending.username).toBe('rahul@example.com');
+      expect(res.data.pending.password).toBe('S3cr3t!');
+    });
+
+    it('refuses to hand it to a different origin', async () => {
+      // Otherwise any site could collect a credential submitted elsewhere.
+      await stash(submission);
+      const res = await collect('https://evil.com/', EVIL);
+
+      expect(res.data.pending).toBeNull();
+      expect(JSON.stringify(res)).not.toContain('S3cr3t!');
+    });
+
+    it('clears the stash even when the origin does not match', async () => {
+      // A stash nobody can claim is just a password sitting in memory.
+      await stash(submission);
+      await collect('https://evil.com/', EVIL);
+      expect((await collect('https://github.com/')).data.pending).toBeNull();
+    });
+
+    it('can only be collected once', async () => {
+      await stash(submission);
+      expect((await collect('https://github.com/')).data.pending).not.toBeNull();
+      expect((await collect('https://github.com/')).data.pending).toBeNull();
+    });
+
+    it('distinguishes ports, so localhost apps do not collide', async () => {
+      await stash({ ...submission, url: 'http://localhost:5173/login' });
+      expect((await collect('http://localhost:3000/')).data.pending).toBeNull();
+    });
+
+    it('expires rather than lingering', async () => {
+      let clock = NOW;
+      const timed = createMessageRouter({
+        chrome,
+        vault,
+        autoLock: createAutoLock({ chrome, vault }),
+        now: () => clock,
+      });
+      await timed.handle({ type: 'credentials/stash', payload: submission }, PAGE);
+
+      clock = NOW + 61000;
+      const res = await timed.handle(
+        { type: 'credentials/pending', payload: { url: 'https://github.com/' } },
+        PAGE,
+      );
+      expect(res.data.pending).toBeNull();
+    });
+
+    it('refuses to stash an empty password', async () => {
+      const res = await stash({ ...submission, password: '' });
+      expect(res.data.stashed).toBe(false);
+    });
+
+    it('never writes the stash to persistent storage', async () => {
+      await stash(submission);
+      const persisted = JSON.stringify([...chrome.storage.local.data.values()]);
+      expect(persisted).not.toContain('S3cr3t!');
     });
   });
 
