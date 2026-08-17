@@ -211,10 +211,13 @@ export function createVaultService({ chrome, kdfOverrides = {}, onDerive = null 
      * @param {Uint8Array} prfOutput
      * @param {string} credentialId
      */
-    async enableDeviceUnlock(prfOutput, credentialId) {
+    async enableDeviceUnlock(prfOutput, credentialId, rpId) {
       const key = await requireKey();
       const record = await wrapVaultKey(key, prfOutput, credentialId);
-      await chrome.storage.local.set({ [DEVICE_UNLOCK_KEY]: record });
+      // The RP ID is stored with the record: unlocking must use the same one
+      // the credential was registered under, or the authenticator will not
+      // release the key material.
+      await chrome.storage.local.set({ [DEVICE_UNLOCK_KEY]: { ...record, rpId } });
       return { enabled: true };
     },
 
@@ -232,6 +235,7 @@ export function createVaultService({ chrome, kdfOverrides = {}, onDerive = null 
       return {
         enabled: record !== undefined,
         credentialId: record?.credentialId ?? null,
+        rpId: record?.rpId ?? null,
       };
     },
 

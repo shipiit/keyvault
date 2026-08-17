@@ -31,12 +31,32 @@ describe('manifest.json', () => {
     expect(manifest.host_permissions).toEqual([]);
   });
 
-  it('keeps the breach-check host optional, so a default install has no network reach', () => {
-    // Breach checking is the only feature that talks to a network at all.
-    // Listing its host as optional means Chrome grants it only when the user
-    // turns the feature on, and the permission can be revoked afterwards.
-    expect(manifest.optional_host_permissions).toEqual(['https://api.pwnedpasswords.com/*']);
+  it('grants no host at install time — every one is optional', () => {
+    // The property that matters is not which hosts are listed, but that none
+    // are granted up front. Chrome asks only when the user turns on the
+    // feature that needs one, and the permission can be revoked afterwards.
+    expect(manifest.host_permissions).toEqual([]);
+    expect(manifest.optional_host_permissions.length).toBeGreaterThan(0);
+  });
+
+  it('asks for the breach-check host only as an optional permission', () => {
+    expect(manifest.optional_host_permissions).toContain('https://api.pwnedpasswords.com/*');
     expect(manifest.host_permissions).not.toContain('https://api.pwnedpasswords.com/*');
+  });
+
+  it('declares the domains device unlock can use as an identifier', () => {
+    // Chrome will not let an extension claim its own origin as a WebAuthn
+    // RP ID, and refuses to grant a permission that was never declared — so
+    // each usable domain has to appear here.
+    expect(manifest.optional_host_permissions).toContain('https://iamrraj.com/*');
+  });
+
+  it('never asks for access to every site', () => {
+    // A password manager requesting <all_urls> is asking for far more trust
+    // than any of its features need.
+    const all = [...manifest.host_permissions, ...manifest.optional_host_permissions];
+    expect(all).not.toContain('<all_urls>');
+    expect(all).not.toContain('https://*/*');
   });
 
   it('requests only the permissions it uses', () => {

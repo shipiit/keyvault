@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'preact/hooks';
 import { Button } from '../components/Button.jsx';
 import { send } from '../lib/messaging.js';
-import { checkDeviceUnlockSupport, registerDeviceUnlock, evaluatePrf } from '../lib/webauthn.js';
+import {
+  checkDeviceUnlockSupport,
+  registerDeviceUnlock,
+  evaluatePrf,
+  RP_DOMAINS,
+  DEFAULT_RP_DOMAIN,
+} from '../lib/webauthn.js';
 
 /**
  * Turning Touch ID / Windows Hello on and off.
@@ -16,6 +22,7 @@ export function DeviceUnlockSection() {
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [rpId, setRpId] = useState(DEFAULT_RP_DOMAIN);
 
   useEffect(() => {
     checkDeviceUnlockSupport().then(setSupport);
@@ -30,11 +37,12 @@ export function DeviceUnlockSection() {
     try {
       const { credentialId, prfOutput } = await registerDeviceUnlock({
         accountName: 'KeyVault on this device',
+        rpId,
       });
       // The PRF output is bytes; extension messaging serialises as JSON, so
       // it crosses as a plain array and is rebuilt on the other side.
-      await send('device/enable', { credentialId, prfOutput: Array.from(prfOutput) });
-      setStatus({ enabled: true, credentialId });
+      await send('device/enable', { credentialId, rpId, prfOutput: Array.from(prfOutput) });
+      setStatus({ enabled: true, credentialId, rpId });
     } catch (caught) {
       setError(caught.message);
     } finally {
@@ -89,6 +97,30 @@ export function DeviceUnlockSection() {
             </ul>
           </div>
 
+          {status?.enabled !== true && (
+            <label className="mt-3 flex flex-col gap-1">
+              <span className="text-xs font-medium">Identifier domain</span>
+              <select
+                value={rpId}
+                onChange={(event) => setRpId(event.currentTarget.value)}
+                className="h-9 rounded-[var(--radius-field)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2 text-sm"
+              >
+                {RP_DOMAINS.map((domain) => (
+                  <option key={domain} value={domain}>
+                    {domain}
+                  </option>
+                ))}
+              </select>
+              {/* Stated because the permission prompt that follows looks
+                  alarming out of context. */}
+              <span className="text-xs leading-relaxed text-[var(--color-fg-subtle)]">
+                Chrome will not let an extension use its own address as an identifier, so it needs a
+                domain you own. Nothing is ever sent there — it is only a label your Mac keys the
+                credential to. Chrome will ask for permission for this domain next.
+              </span>
+            </label>
+          )}
+
           {status?.enabled === true ? (
             <div className="mt-3 flex items-center justify-between gap-3">
               <span className="text-xs font-medium text-[var(--color-success)]">
@@ -126,9 +158,18 @@ export function DeviceUnlockButton({ onUnlocked }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
+  const [rpId, setRpId] = useState(DEFAULT_RP_DOMAIN);
+
   useEffect(() => {
     send('device/status')
-      .then(({ enabled, credentialId: id }) => enabled && setCredentialId(id))
+      .then(({ enabled, credentialId: id, rpId: storedRpId }) => {
+        if (enabled) {
+          setCredentialId(id);
+          // The credential only releases key material under the RP ID it was
+          // registered with.
+          setRpId(storedRpId ?? DEFAULT_RP_DOMAIN);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -140,7 +181,7 @@ export function DeviceUnlockButton({ onUnlocked }) {
     setBusy(true);
     setError(null);
     try {
-      const prfOutput = await evaluatePrf(credentialId);
+      const prfOutput = await evaluatePrf(credentialId, rpId);
       await send('device/unlock', { prfOutput: Array.from(prfOutput) });
       onUnlocked();
     } catch (caught) {

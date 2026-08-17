@@ -30,7 +30,11 @@
     "128": "icons/icon-128.png"
   },
   "options_page": "ui/vault.html",
-  "optional_host_permissions": ["https://api.pwnedpasswords.com/*"],
+  "optional_host_permissions": [
+    "https://api.pwnedpasswords.com/*",
+    "https://iamrraj.com/*",
+    "https://aftrdrk.dev/*"
+  ],
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],

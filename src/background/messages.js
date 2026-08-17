@@ -298,10 +298,11 @@ export function createMessageRouter({
        * survive extension message serialisation, which would silently
        * become an empty object.
        */
-      handle: async ({ prfOutput, credentialId }) => {
+      handle: async ({ prfOutput, credentialId, rpId }) => {
         const result = await vault.enableDeviceUnlock(
           Uint8Array.from(prfOutput ?? []),
           credentialId,
+          rpId,
         );
         await autoLock.touch();
         return result;
