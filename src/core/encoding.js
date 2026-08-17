@@ -101,24 +101,3 @@ export function concatBytes(...parts) {
   }
   return out;
 }
-
-/**
- * Content comparison that does not short-circuit on the first differing byte.
- *
- * Used wherever a comparison result could otherwise leak, through timing, how
- * much of a secret an attacker has guessed correctly.
- *
- * @param {Uint8Array} a
- * @param {Uint8Array} b
- * @returns {boolean}
- */
-export function bytesEqual(a, b) {
-  if (a.length !== b.length) {
-    return false;
-  }
-  let diff = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    diff |= a[i] ^ b[i];
-  }
-  return diff === 0;
-}

@@ -8,7 +8,6 @@ import {
   fromBase64Url,
   toHex,
   concatBytes,
-  bytesEqual,
 } from '../../src/core/encoding.js';
 import { ParseError } from '../../src/core/errors.js';
 
@@ -87,25 +86,5 @@ describe('concatBytes', () => {
 
   it('returns an empty array for no arguments', () => {
     expect(concatBytes().length).toBe(0);
-  });
-});
-
-describe('bytesEqual', () => {
-  it('compares by content', () => {
-    expect(bytesEqual(new Uint8Array([1, 2]), new Uint8Array([1, 2]))).toBe(true);
-    expect(bytesEqual(new Uint8Array([1, 2]), new Uint8Array([1, 3]))).toBe(false);
-  });
-
-  it('returns false for different lengths', () => {
-    expect(bytesEqual(new Uint8Array([1]), new Uint8Array([1, 2]))).toBe(false);
-  });
-
-  it('detects a difference in the first byte as well as the last', () => {
-    expect(bytesEqual(new Uint8Array([9, 2, 3]), new Uint8Array([1, 2, 3]))).toBe(false);
-    expect(bytesEqual(new Uint8Array([1, 2, 9]), new Uint8Array([1, 2, 3]))).toBe(false);
-  });
-
-  it('treats empty arrays as equal', () => {
-    expect(bytesEqual(new Uint8Array(), new Uint8Array())).toBe(true);
   });
 });
