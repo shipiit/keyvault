@@ -84,6 +84,12 @@ async function fillWith(entryId) {
  *
  * Read at submit time because single-page apps tear the form down
  * immediately afterwards, and a full page load destroys it outright.
+ *
+ * The capture is handed to the background **immediately**, not on unload. A
+ * message sent while a page is unloading frequently never arrives — the
+ * document is torn down mid-flight — and that race is why a normal login
+ * that navigates showed no save prompt at all. Stashing at capture time
+ * removes the timing question entirely.
  */
 function captureSubmission() {
   const [target] = detectLoginForms(document);
@@ -94,12 +100,19 @@ function captureSubmission() {
   if (password === '') {
     return;
   }
+
   pendingSubmission = {
     username: target.username?.value ?? '',
     password,
     url: window.location.href,
     title: siteLabel(),
   };
+
+  // Fire and forget: the page may be gone before this resolves, which is
+  // exactly the case being defended against.
+  api.runtime
+    .sendMessage({ type: 'credentials/stash', payload: pendingSubmission })
+    .catch(() => {});
 }
 
 /**
@@ -187,18 +200,18 @@ async function findTotpOnThisPage() {
 }
 
 /**
- * Hand a capture to the background so it survives the page unloading.
+ * A last attempt on unload, for a submission captured some other way.
  *
- * A normal form POST unloads this script along with everything it holds.
- * Without this the save prompt only ever worked on single-page apps.
+ * The stash normally happens at capture time; this only covers a page that
+ * navigates without any submit or click this script saw.
  */
 function stashBeforeUnload() {
   if (pendingSubmission === null) {
     return;
   }
-  api.runtime.sendMessage({ type: 'credentials/stash', payload: pendingSubmission }).catch(() => {
-    // The page is going away; there is nothing left to recover to.
-  });
+  api.runtime
+    .sendMessage({ type: 'credentials/stash', payload: pendingSubmission })
+    .catch(() => {});
   pendingSubmission = null;
 }
 
