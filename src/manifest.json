@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "KeyVault",
   "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxFfqZGl4nFhDVtLYkDp7uAP3POxK4RZOX+xolZ1gSRwVkfYCdUbWnMXN3yUFQR0zVgd/P5U8Ly/c0WvpqxofH+Px/j2nCL7fePmZh684pIgC74Z87WEUEh9jiYvI231BhnX1dtP3HmEy00aI/AVhv4i8cDJUz9r7RDeZpY1u6znTrZm0hI/DoMl843Mu7JwXIm5t/jZ+6aLfsVk2QvdfG/M/HTq9AQZf7im7s1G6QxJfif/kwnwU0+zKJzVW2hqUEm9Gtci4B4Q274DvLn0sBtnpe4Nm9SzhLwXO4Ho6k68X+VYiAm+RA4uhq+clFR5Is/UhL6d6cAVrrJkSUp+WTwIDAQAB",
   "description": "A local-only, zero-knowledge password manager. Your vault never leaves this device.",
   "minimum_chrome_version": "116",
   "background": {
@@ -18,7 +19,11 @@
       "128": "icons/icon-128.png"
     }
   },
-  "permissions": ["storage", "alarms", "activeTab"],
+  "permissions": [
+    "storage",
+    "alarms",
+    "activeTab"
+  ],
   "host_permissions": [],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
@@ -37,8 +42,13 @@
   ],
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["content/index.js"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content/index.js"
+      ],
       "run_at": "document_idle",
       "all_frames": true,
       "match_about_blank": false

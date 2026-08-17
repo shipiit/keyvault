@@ -12,3 +12,6 @@ keyvault-*.zip
 # Playwright
 test-results/
 playwright-report/
+
+# Extension signing key — never commit
+*.pem
