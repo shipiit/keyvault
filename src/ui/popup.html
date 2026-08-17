@@ -9,8 +9,10 @@
          before CSS loads, and an unsized body opens as a thin sliver. */
       html,
       body {
-        width: 380px;
-        height: 540px;
+        /* Chrome caps extension popups at 800x600 and silently clips beyond
+           it, so this is the largest usable canvas — not an arbitrary size. */
+        width: 780px;
+        height: 600px;
         margin: 0;
         overflow: hidden;
       }

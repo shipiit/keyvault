@@ -5,7 +5,16 @@ import { Button } from '../components/Button.jsx';
 /**
  * Application header: brand, search, and the global actions.
  */
-export function TopBar({ query, onQuery, onNewItem, onLock, theme, onTheme, onSettings }) {
+export function TopBar({
+  query,
+  onQuery,
+  onNewItem,
+  onLock,
+  theme,
+  onTheme,
+  onSettings,
+  compact = false,
+}) {
   const searchRef = useRef(null);
 
   // Cmd/Ctrl-K focuses search. Bound on the window rather than the input so
@@ -24,19 +33,21 @@ export function TopBar({ query, onQuery, onNewItem, onLock, theme, onTheme, onSe
 
   return (
     <header className="flex items-center gap-4 border-b border-[var(--color-border)] bg-[var(--color-chrome)] px-5 py-3">
-      <div className="flex w-56 shrink-0 items-center gap-2.5">
+      <div className={`flex shrink-0 items-center gap-2.5 ${compact ? '' : 'w-56'}`}>
         <span
           className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-card)] bg-[var(--color-accent)]"
           aria-hidden="true"
         >
           <Icon.Shield className="size-5 text-white" />
         </span>
-        <span className="flex min-w-0 flex-col leading-tight">
-          <span className="truncate text-sm font-semibold">KeyVault</span>
-          <span className="truncate text-[11px] text-[var(--color-fg-muted)]">
-            Local only. Always yours.
+        {!compact && (
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate text-sm font-semibold">KeyVault</span>
+            <span className="truncate text-[11px] text-[var(--color-fg-muted)]">
+              Local only. Always yours.
+            </span>
           </span>
-        </span>
+        )}
       </div>
 
       <div className="relative min-w-0 flex-1">
@@ -67,12 +78,12 @@ export function TopBar({ query, onQuery, onNewItem, onLock, theme, onTheme, onSe
       <div className="flex shrink-0 items-center gap-2">
         <Button variant="primary" size="md" onClick={onNewItem}>
           <Icon.Plus className="size-4" />
-          New Item
+          {compact ? 'New' : 'New Item'}
         </Button>
 
         <Button variant="secondary" size="md" onClick={onLock}>
           <Icon.Lock className="size-4 text-[var(--color-success)]" />
-          Lock Vault
+          {compact ? '' : 'Lock Vault'}
         </Button>
 
         <IconButton

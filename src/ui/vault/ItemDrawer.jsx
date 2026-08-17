@@ -30,7 +30,7 @@ const EMPTY = {
  * Used for both, because the fields are identical and two near-copies of a
  * form is where they drift apart.
  */
-export function ItemDrawer({ entry = null, onSave, onClose }) {
+export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
   const isEdit = entry !== null;
   const [type, setType] = useState('login');
   const [values, setValues] = useState(EMPTY);
@@ -117,7 +117,10 @@ export function ItemDrawer({ entry = null, onSave, onClose }) {
       role="dialog"
       aria-label={isEdit ? 'Edit item' : 'New item'}
       aria-modal="false"
-      className="flex w-[380px] shrink-0 flex-col border-l border-[var(--color-border)] bg-[var(--color-chrome)]"
+      className={[
+        'flex flex-col border-l border-[var(--color-border)] bg-[var(--color-chrome)]',
+        compact ? 'min-w-0 flex-1' : 'w-[380px] shrink-0',
+      ].join(' ')}
     >
       <header className="flex items-center justify-between gap-2 px-5 pb-3 pt-5">
         <h2 className="text-lg font-semibold tracking-tight">

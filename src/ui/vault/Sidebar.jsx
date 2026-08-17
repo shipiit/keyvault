@@ -24,7 +24,33 @@ const CATEGORIES = [
   { id: 'document', label: 'Documents', icon: Icon.Document },
 ];
 
+/**
+ * Which rows to show.
+ *
+ * Empty rows are hidden. A column of zeroes is noise that pushes the useful
+ * entries down and makes the vault look broken on first run. A category
+ * reappears the moment it has something in it, so nothing is permanently
+ * lost — and the New Item drawer still offers every type regardless.
+ *
+ * Two exceptions, both deliberate:
+ *  - "All Items" always shows, so there is never an empty sidebar.
+ *  - The currently selected row always shows, so the view you are looking at
+ *    cannot vanish from under you when you delete its last item.
+ *
+ * @param {object[]} items
+ * @param {object} counts
+ * @param {string} view
+ */
+function visibleRows(items, counts, view) {
+  return items.filter(
+    (item) => item.id === 'all' || item.id === view || (counts[item.id] ?? 0) > 0,
+  );
+}
+
 export function Sidebar({ view, onSelectView, counts, score, onOpenScore, collapsed, onToggle }) {
+  const views = visibleRows(VIEWS, counts, view);
+  const categories = visibleRows(CATEGORIES, counts, view);
+
   return (
     <nav
       aria-label="Vault navigation"
@@ -36,7 +62,7 @@ export function Sidebar({ view, onSelectView, counts, score, onOpenScore, collap
     >
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4">
         <Group title="Main menu" collapsed={collapsed}>
-          {VIEWS.map((item) => (
+          {views.map((item) => (
             <NavItem
               key={item.id}
               item={item}
@@ -48,18 +74,20 @@ export function Sidebar({ view, onSelectView, counts, score, onOpenScore, collap
           ))}
         </Group>
 
-        <Group title="Categories" collapsed={collapsed}>
-          {CATEGORIES.map((item) => (
-            <NavItem
-              key={item.id}
-              item={item}
-              count={counts[item.id] ?? 0}
-              active={view === item.id}
-              collapsed={collapsed}
-              onSelect={onSelectView}
-            />
-          ))}
-        </Group>
+        {categories.length > 0 && (
+          <Group title="Categories" collapsed={collapsed}>
+            {categories.map((item) => (
+              <NavItem
+                key={item.id}
+                item={item}
+                count={counts[item.id] ?? 0}
+                active={view === item.id}
+                collapsed={collapsed}
+                onSelect={onSelectView}
+              />
+            ))}
+          </Group>
+        )}
       </div>
 
       {!collapsed && (

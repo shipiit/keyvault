@@ -19,7 +19,7 @@ const TABS = [
  * and dropped when the selection changes. It is never held for the whole
  * session, and the password is masked until explicitly revealed.
  */
-export function ItemDetail({ entryId, onEdit, onClose }) {
+export function ItemDetail({ entryId, onEdit, onClose, compact = false }) {
   const [entry, setEntry] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('details');
@@ -67,11 +67,17 @@ export function ItemDetail({ entryId, onEdit, onClose }) {
 
   return (
     <Pane>
-      <header className="flex items-start gap-4 px-8 pb-4 pt-6">
-        <ItemAvatar title={entry.title} size="lg" />
+      <header
+        className={`flex items-start gap-3 ${compact ? 'px-4 pb-3 pt-4' : 'gap-4 px-8 pb-4 pt-6'}`}
+      >
+        <ItemAvatar title={entry.title} size={compact ? 'md' : 'lg'} />
         <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1">
           <div className="flex items-center gap-2">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">{entry.title}</h1>
+            <h1
+              className={`truncate font-semibold tracking-tight ${compact ? 'text-lg' : 'text-2xl'}`}
+            >
+              {entry.title}
+            </h1>
             {entry.favorite && <Pill>Favorite</Pill>}
           </div>
         </div>
@@ -79,7 +85,7 @@ export function ItemDetail({ entryId, onEdit, onClose }) {
         <div className="flex shrink-0 items-center gap-2">
           <Button variant="secondary" size="sm" onClick={() => onEdit(entry)}>
             <Icon.Edit className="size-4" />
-            Edit
+            {compact ? '' : 'Edit'}
           </Button>
           <CopyButton label="Copy password" getValue={() => copyWithAutoClear(entry.password)} />
           <IconButton label="More actions">
@@ -94,7 +100,7 @@ export function ItemDetail({ entryId, onEdit, onClose }) {
       <div
         role="tablist"
         aria-label="Item sections"
-        className="flex gap-1 border-b border-[var(--color-border)] px-8"
+        className={`flex gap-1 border-b border-[var(--color-border)] ${compact ? 'px-4' : 'px-8'}`}
       >
         {TABS.map((item) => (
           <button
@@ -118,7 +124,7 @@ export function ItemDetail({ entryId, onEdit, onClose }) {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-8 py-5">
+      <div className={`flex-1 overflow-y-auto ${compact ? 'px-4 py-3' : 'px-8 py-5'}`}>
         {tab === 'details' && (
           <DetailsTab entry={entry} revealed={revealed} onToggleReveal={setRevealed} />
         )}

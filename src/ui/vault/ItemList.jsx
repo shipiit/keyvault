@@ -15,7 +15,15 @@ const SORTS = [
   { id: 'used', label: 'Recently Used' },
 ];
 
-export function ItemList({ title, entries, selectedId, onSelect, onToggleFavorite, loading }) {
+export function ItemList({
+  title,
+  entries,
+  selectedId,
+  onSelect,
+  onToggleFavorite,
+  loading,
+  compact = false,
+}) {
   const [sort, setSort] = useState('updated');
   const [dense, setDense] = useState(false);
 
@@ -28,13 +36,22 @@ export function ItemList({ title, entries, selectedId, onSelect, onToggleFavorit
   return (
     <section
       aria-label={title}
-      className="flex w-[340px] shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-bg)]"
+      className={[
+        'flex shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-bg)]',
+        compact ? 'w-[270px]' : 'w-[340px]',
+      ].join(' ')}
     >
-      <header className="px-5 pb-3 pt-5">
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+      <header className={compact ? 'px-4 pb-2 pt-3' : 'px-5 pb-3 pt-5'}>
+        <h1
+          className={compact ? 'text-base font-semibold' : 'text-xl font-semibold tracking-tight'}
+        >
+          {title}
+        </h1>
       </header>
 
-      <div className="flex items-center justify-between gap-2 px-5 pb-3">
+      <div
+        className={`flex items-center justify-between gap-2 pb-2 ${compact ? 'px-4' : 'px-5 pb-3'}`}
+      >
         <label className="flex items-center gap-1.5 text-xs text-[var(--color-fg-muted)]">
           <Icon.Sort className="size-4" />
           <span className="sr-only">Sort by</span>
