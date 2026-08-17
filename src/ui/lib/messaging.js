@@ -102,42 +102,69 @@ export async function getActiveTabUrl() {
 }
 
 /**
- * Ask the active tab to look for a TOTP setup code on the page.
+ * Look for a TOTP setup code in the user's open tabs.
  *
- * Runs only on explicit user action, and only against the tab the user is
- * looking at. Most 2FA setup pages print the `otpauth://` URI next to the QR
- * image, so this usually succeeds without decoding anything.
+ * Which tab to ask is not obvious, and getting it wrong is why this first
+ * failed: from the popup the active tab *is* the page with the QR code, but
+ * from the full vault page the active tab is the vault itself. So the active
+ * tab is tried first, and then the others in the same window.
+ *
+ * Only runs on an explicit click, only reads pages that already have the
+ * content script, and only looks for an `otpauth://` pattern.
+ *
+ * Without the broad `tabs` permission — which KeyVault deliberately does not
+ * request, because it warns about reading browsing history — `tab.url` and
+ * `tab.title` come back undefined. Messaging still works, so the scan is
+ * unaffected; the extension simply cannot name the tab it read, and says so
+ * rather than guessing.
  *
  * @returns {Promise<{found: boolean, uri?: string, secret?: string,
- *                    source?: string, reason?: string}>}
+ *                    source?: string, tabTitle?: string, reason?: string}>}
  */
-export async function scanActiveTabForTotp() {
+export async function scanOpenTabsForTotp() {
   if (useDevMock) {
     return {
       found: true,
       uri: 'otpauth://totp/Demo:you@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Demo',
       source: 'text',
+      tabTitle: 'Demo two-factor setup',
     };
   }
 
-  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
-  if (tab === undefined) {
-    return { found: false, reason: 'no active tab' };
+  const ownPrefix = `chrome-extension://${api.runtime.id}/`;
+  const tabs = await api.tabs.query({ currentWindow: true });
+
+  // Active tab first: from the popup it is the page the user is looking at,
+  // and it is the answer they expect.
+  const ordered = [...tabs].sort((a, b) => Number(b.active) - Number(a.active));
+
+  let reachable = 0;
+  for (const tab of ordered) {
+    if (tab.id === undefined || (tab.url ?? '').startsWith(ownPrefix)) {
+      continue;
+    }
+    try {
+      const result = await api.tabs.sendMessage(tab.id, { type: 'content/scanTotp' });
+      reachable += 1;
+      if (result?.found) {
+        return { ...result, tabTitle: tab.title ?? '' };
+      }
+    } catch {
+      // No content script in this tab: a browser-internal page, or a tab
+      // opened before the extension was installed or last reloaded.
+      continue;
+    }
   }
 
-  try {
-    const result = await api.tabs.sendMessage(tab.id, { type: 'content/scanTotp' });
-    return result ?? { found: false, reason: 'the page did not respond' };
-  } catch {
-    // No content script on this tab — a browser-internal page, or a tab
-    // opened before the extension was installed or reloaded.
-    return {
-      found: false,
-      reason:
-        'KeyVault cannot read this page. Open the page showing the QR code, reload it, ' +
-        'and try again.',
-    };
-  }
+  return {
+    found: false,
+    reason:
+      reachable === 0
+        ? 'KeyVault could not read any open tab. Open the page showing the QR code, reload ' +
+          'that page, then try again.'
+        : `No two-factor setup code found in your ${reachable} open ` +
+          `${reachable === 1 ? 'tab' : 'tabs'}. Open the page showing the QR code and try again.`,
+  };
 }
 
 /**

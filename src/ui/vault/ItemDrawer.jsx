@@ -5,7 +5,7 @@ import { Field } from '../components/Field.jsx';
 import { GeneratorPopover } from './GeneratorPopover.jsx';
 import { assessPassword } from '../../core/password-strength.js';
 import { parseOtpauthUri } from '../../core/totp.js';
-import { scanActiveTabForTotp } from '../lib/messaging.js';
+import { scanOpenTabsForTotp } from '../lib/messaging.js';
 
 const TYPES = [
   { id: 'login', label: 'Login', icon: Icon.Lock },
@@ -280,7 +280,7 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
                   loading={scan.status === 'scanning'}
                   onClick={async () => {
                     setScan({ status: 'scanning' });
-                    const result = await scanActiveTabForTotp();
+                    const result = await scanOpenTabsForTotp();
                     if (result.found) {
                       setValues((current) => ({
                         ...current,
@@ -294,7 +294,7 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
                   }}
                 >
                   <Icon.Search className="size-4" />
-                  Scan this page for a QR code
+                  Scan open tabs for a QR code
                 </Button>
 
                 <p
@@ -312,8 +312,8 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
                       : 'Found — read from the setup key printed on the page.'
                     : scan.status === 'failed'
                       ? scan.reason
-                      : "Open the site's two-factor setup page in the tab behind this one, " +
-                        'then scan — or paste the key yourself.'}
+                      : 'Open the two-factor setup page in another tab, then scan — or paste ' +
+                        'the key yourself.'}
                 </p>
               </div>
             )}

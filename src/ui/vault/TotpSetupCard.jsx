@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Icon } from './primitives.jsx';
 import { Button } from '../components/Button.jsx';
-import { scanActiveTabForTotp, updateEntryRemote } from '../lib/messaging.js';
+import { scanOpenTabsForTotp, updateEntryRemote } from '../lib/messaging.js';
 import { parseOtpauthUri } from '../../core/totp.js';
 
 /**
@@ -16,7 +16,7 @@ export function TotpSetupCard({ entryId, onAdded }) {
   const [state, setState] = useState({ status: 'idle' });
   const [manual, setManual] = useState(null);
 
-  async function save(value) {
+  async function save(value, fromTab = null) {
     setState({ status: 'saving' });
     try {
       // Validated here so a bad key fails while the user is still looking at
@@ -26,7 +26,7 @@ export function TotpSetupCard({ entryId, onAdded }) {
         parseOtpauthUri(raw);
       }
       await updateEntryRemote(entryId, { totpUri: raw });
-      setState({ status: 'idle' });
+      setState({ status: 'idle', fromTab });
       setManual(null);
       onAdded();
     } catch (error) {
@@ -36,12 +36,12 @@ export function TotpSetupCard({ entryId, onAdded }) {
 
   async function scan() {
     setState({ status: 'scanning' });
-    const result = await scanActiveTabForTotp();
+    const result = await scanOpenTabsForTotp();
     if (!result.found) {
       setState({ status: 'failed', reason: result.reason });
       return;
     }
-    await save(result.uri ?? result.secret);
+    await save(result.uri ?? result.secret, result.tabTitle);
   }
 
   return (
@@ -51,8 +51,8 @@ export function TotpSetupCard({ entryId, onAdded }) {
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-sm font-medium">Two-factor code</span>
           <p className="text-xs leading-relaxed text-[var(--color-fg-muted)]">
-            Not set up. Open this site&rsquo;s two-factor page in another tab, then scan it —
-            KeyVault reads the setup key printed beside the QR code.
+            Not set up. Open this site&rsquo;s two-factor page in another tab, then scan — KeyVault
+            reads the setup key printed beside the QR code, or the code itself.
           </p>
         </div>
       </div>
@@ -65,7 +65,7 @@ export function TotpSetupCard({ entryId, onAdded }) {
           onClick={scan}
         >
           <Icon.Search className="size-4" />
-          Scan this page
+          Scan open tabs
         </Button>
         <Button
           variant="secondary"
@@ -116,6 +116,12 @@ export function TotpSetupCard({ entryId, onAdded }) {
       {state.status === 'failed' && (
         <p role="alert" className="mt-2 text-xs leading-relaxed text-[var(--color-warn)]">
           {state.reason}
+        </p>
+      )}
+
+      {state.status === 'idle' && state.fromTab !== undefined && state.fromTab !== null && (
+        <p className="mt-2 text-xs text-[var(--color-success)]" aria-live="polite">
+          Added — read from “{state.fromTab}”.
         </p>
       )}
     </div>
