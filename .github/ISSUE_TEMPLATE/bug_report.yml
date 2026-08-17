@@ -1,0 +1,115 @@
+name: Bug report
+description: Something in KeyVault behaves incorrectly.
+title: '[Bug]: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this.
+
+        **Please do not paste anything from your vault.** No passwords, no
+        two-factor secrets, no `otpauth://` links, no exported backups, and no
+        screenshots with a password field revealed. An `otpauth://` URI
+        contains the seed itself — anyone reading it can generate your codes
+        forever. Redact it as `otpauth://totp/…?secret=REDACTED`.
+
+        **If this is a security vulnerability, stop and read
+        [SECURITY.md](../blob/main/SECURITY.md) instead.** Do not open a
+        public issue for it.
+
+  - type: checkboxes
+    id: no-secrets
+    attributes:
+      label: Before you post
+      options:
+        - label: I have checked that this report contains no passwords, secrets, or vault data.
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect instead?
+      placeholder: |
+        I clicked "Turn on device unlock" and it showed an error.
+        I expected Touch ID to be enabled.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: |
+        The single most useful part of a bug report. If it only happens on one
+        site, name the site — or a public page that shows the same behaviour.
+      placeholder: |
+        1. Unlock the vault
+        2. Open Settings
+        3. Click "Turn on device unlock"
+        4. See the error under the button
+    validations:
+      required: true
+
+  - type: textarea
+    id: errors
+    attributes:
+      label: Error text, if any
+      description: |
+        `chrome://extensions` → KeyVault → **Errors**.
+
+        Please click **Clear all**, reproduce the problem, and then copy what
+        appears. That list is an append-only log which survives reloads, so an
+        uncleared entry is often left over from a version you no longer have.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: KeyVault version
+      description: The version shown on `chrome://extensions`, or the commit you built from.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Edge
+        - Brave
+        - Arc
+        - Vivaldi
+        - Opera
+        - Other Chromium browser
+    validations:
+      required: true
+
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser version
+      placeholder: '128.0.6613.120'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - ChromeOS
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: Screenshots help — with any password field hidden.

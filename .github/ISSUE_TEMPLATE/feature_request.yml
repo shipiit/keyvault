@@ -1,0 +1,52 @@
+name: Feature request
+description: Suggest something KeyVault should do.
+title: '[Feature]: '
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check [ROADMAP.md](../blob/main/ROADMAP.md) first — it lists
+        what is planned, and what has been deliberately left out.
+
+        Some things are omissions on purpose. Anything that would send vault
+        contents to a server, weaken the master-password requirement, or make
+        the extension readable by a web page will be declined, however
+        convenient it would be.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you hitting?
+      description: |
+        Describe the situation rather than the solution. It is often possible
+        to solve the problem in a way that is better than the feature that
+        first comes to mind.
+      placeholder: |
+        I have thirty logins for the same company and cannot tell them apart
+        in the list.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: How do you work around it today?
+
+  - type: checkboxes
+    id: tradeoffs
+    attributes:
+      label: Does this involve any of the following?
+      description: Not disqualifying — but they change the design, so say so up front.
+      options:
+        - label: Sending vault data anywhere, including to sync it
+        - label: Storing something outside the encrypted vault
+        - label: Making data reachable by the pages you visit
+        - label: A network request of any kind

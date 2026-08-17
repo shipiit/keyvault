@@ -1,0 +1,12 @@
+# Security reports must never arrive as public issues, so the blank-issue
+# escape hatch is closed and the report route is offered before the form list.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/shipiit/keyvault/security/advisories/new
+    about: >-
+      Private disclosure. Never open a public issue for a vulnerability in a
+      password manager — it tells attackers before users can update.
+  - name: Question or general discussion
+    url: https://github.com/shipiit/keyvault/discussions
+    about: For "how do I…" and "should it…" — issues are for defects and proposals.

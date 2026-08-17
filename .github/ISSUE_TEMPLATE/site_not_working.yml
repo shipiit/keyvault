@@ -1,0 +1,80 @@
+name: Autofill or 2FA not working on a site
+description: A specific website that KeyVault fails to fill, save, or scan.
+title: '[Site]: '
+labels: ['bug', 'site-compatibility']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Sites are where a password manager actually breaks, and they break in
+        ways no unit test can predict — custom elements, shadow DOM, fields
+        that re-render as you type, a login split across two pages.
+
+        **Never paste the credentials you used.** Name the site; do not
+        include the account.
+
+  - type: checkboxes
+    id: no-secrets
+    attributes:
+      label: Before you post
+      options:
+        - label: This report contains no passwords, one-time codes, or two-factor secrets.
+          required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: Page URL
+      description: The login or 2FA page itself. A public sign-in page is ideal.
+      placeholder: https://example.com/login
+    validations:
+      required: true
+
+  - type: dropdown
+    id: what-failed
+    attributes:
+      label: What failed?
+      options:
+        - Autofill did not fill the fields
+        - It filled the wrong field
+        - It never offered to save a new login
+        - It kept asking to save a password that had not changed
+        - The one-time code was not filled
+        - The QR code could not be scanned
+        - Auto-submit did not work, or submitted too early
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: What you saw
+      placeholder: |
+        The username filled but the password box stayed empty. Clicking it and
+        choosing the entry from the badge worked.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reachable
+    attributes:
+      label: Can the page be reached without an account?
+      description: |
+        A page anyone can open is enormously easier to fix — the behaviour can
+        be reproduced directly instead of guessed at.
+      options:
+        - Yes, the login page is public
+        - No, it is behind a login or a company network
+    validations:
+      required: true
+
+  - type: textarea
+    id: markup
+    attributes:
+      label: Field markup, if you can get it
+      description: |
+        Right-click the field → Inspect, then copy the `<input>` and the
+        `<form>` around it. **Delete the `value=` attribute** before pasting —
+        it can contain what you typed.
+      render: html
