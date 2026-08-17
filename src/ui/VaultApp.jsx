@@ -9,6 +9,7 @@ import { GeneratorPage } from './vault/GeneratorPage.jsx';
 import { TrashView } from './vault/TrashView.jsx';
 import { WatchtowerView } from './vault/WatchtowerView.jsx';
 import { UpdateBanner } from './vault/UpdateBanner.jsx';
+import { RecoveryKit } from './vault/RecoveryKit.jsx';
 import { restoreEntryRemote, listTrash } from './lib/messaging.js';
 import { Unlock } from './screens/Unlock.jsx';
 import { Onboarding } from './screens/Onboarding.jsx';
@@ -143,7 +144,7 @@ export function VaultApp({ compact = false }) {
     else if (view === 'recent') {
       const cutoff = Date.now() - 7 * 86400000;
       list = list.filter((e) => (e.lastUsedAt ?? 0) > cutoff);
-    } else if (view === 'trash' || view === 'watchtower') list = [];
+    } else if (view === 'trash' || view === 'watchtower' || view === 'recovery') list = [];
     else if (CATEGORY_IDS.has(view)) list = list.filter((e) => (e.type ?? 'login') === view);
 
     const needle = query.trim().toLowerCase();
@@ -259,6 +260,8 @@ export function VaultApp({ compact = false }) {
           <GeneratorPage />
         ) : view === 'trash' ? (
           <TrashView onChanged={refreshEntries} />
+        ) : view === 'recovery' ? (
+          <RecoveryKit />
         ) : view === 'watchtower' ? (
           <WatchtowerView
             score={score}

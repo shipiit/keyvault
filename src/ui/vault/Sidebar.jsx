@@ -15,6 +15,7 @@ const VIEWS = [
   // shown — hiding it when empty would hide it permanently.
   { id: 'generator', label: 'Generator', icon: Icon.Refresh, tool: true },
   { id: 'watchtower', label: 'Watchtower', icon: Icon.Shield, tool: true },
+  { id: 'recovery', label: 'Recovery kit', icon: Icon.Document, tool: true },
   { id: 'favorites', label: 'Favorites', icon: Icon.Star },
   { id: 'recent', label: 'Recent', icon: Icon.Clock },
   { id: 'trash', label: 'Trash', icon: Icon.Trash },

@@ -252,3 +252,8 @@ export function updateStatus() {
 export function checkForUpdate() {
   return send('updates/check');
 }
+
+/** Data for the printable recovery kit. Contains no secrets by construction. */
+export function recoveryKit() {
+  return send('vault/recoveryKit');
+}

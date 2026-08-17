@@ -11,6 +11,7 @@ import {
 import { entriesForUrl, entryMatchesUrl, toHostname, toOrigin } from '../core/url-match.js';
 import { parseTotpInput, generateTotp, totpTimeRemaining } from '../core/totp.js';
 import { computeSecurityScore } from '../core/security-score.js';
+import { buildRecoveryKit } from '../core/recovery-kit.js';
 import { KeyVaultError } from '../core/errors.js';
 import { createBreachService } from './breach-service.js';
 import { createUpdateService } from './update-service.js';
@@ -514,6 +515,26 @@ export function createMessageRouter({
         // relies on, and counting it would make the score worse for tidying
         // up.
         return computeSecurityScore(liveEntries(data), { now: now(), breachedIds });
+      },
+    },
+
+    'vault/recoveryKit': {
+      contentScript: false,
+      /**
+       * The data behind the printable recovery kit.
+       *
+       * Requires an unlocked vault, and returns nothing that could be worth
+       * stealing off a printed page — see `core/recovery-kit.js`.
+       */
+      handle: async () => {
+        const doc = await vault.exportDocument();
+        const data = await vault.getData();
+        return buildRecoveryKit({
+          saltBase64: doc.kdf.salt,
+          entryCount: liveEntries(data).length,
+          version: chrome.runtime.getManifest().version,
+          now: now(),
+        });
       },
     },
 
