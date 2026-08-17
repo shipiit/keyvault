@@ -56,6 +56,10 @@ vault.
 | **Import / export**    | Encrypted backup files, plus importers for 1Password, Bitwarden, LastPass, and Chrome CSV.                     |
 | **Password strength**  | Offline, pattern-aware estimate with an honest time-to-crack figure.                                           |
 | **Breach check**       | Optional, off by default. Tells you if a password appears in public breach data, without sending the password. |
+| **In-field badge**     | A KeyVault mark inside the login box; click for your matching logins, in a closed shadow root the page cannot read. |
+| **Watchtower**         | Every weak, reused, breached or stale password, grouped by problem, each one a click from the item that causes it. |
+| **Trash with undo**    | Deleting is reversible. Nothing is purged on a timer, because no server holds a second copy. |
+| **Touch ID unlock**    | WebAuthn PRF wraps the vault key to your device. Prompts on its own; the master password always still works. |
 
 ---
 
@@ -166,7 +170,7 @@ Full detail and vulnerability reporting: [`SECURITY.md`](SECURITY.md).
 
 ## Project status
 
-The work is split into four stages, each of which produces something verifiable
+The work is split into five stages, each of which produces something verifiable
 on its own.
 
 | Stage                   | Contents                                               | Status                                              |
@@ -174,16 +178,26 @@ on its own.
 | **1 — Core**            | Crypto, TOTP, vault data model, CI                     | ✅ **Complete**                                     |
 | **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging     | ✅ **Complete** — loadable in Chrome                |
 | **3 — UI**              | Design system, popup, vault page, settings, generator  | ✅ **Complete**                                     |
-| **4 — Web integration** | Autofill, save prompt, auto-login, 2FA, backup, import | 🟡 **Mostly done** — see [`ROADMAP.md`](ROADMAP.md) |
+| **4 — Web integration** | Autofill, save prompt, auto-login, 2FA, backup, import | ✅ **Complete**                                     |
+| **5 — Daily use**       | In-field badge, Watchtower, trash, Touch ID unlock     | ✅ **Complete**                                     |
 
-**What this means today:** the extension is usable day to day. It fills logins
-as pages load, offers to save what you type, reads two-factor setup codes from a
-QR image or the key beside it, fills the verification page, generates passwords,
-and exports an encrypted backup.
+**What this means today:** the extension is in daily use. It fills logins as
+pages load, shows a badge inside the field with your matching logins, offers to
+save what you type, reads two-factor setup codes from a QR image or the key
+printed beside it, fills *and submits* the verification page, unlocks with
+Touch ID, lists every weak or reused password in Watchtower, keeps deleted
+items in an undoable trash, generates passwords, and exports an encrypted
+backup.
 
-It is still **not audited**, and there are no end-to-end tests — every test runs
-against the code rather than against a browser with the extension loaded. Both
-are recorded in [`ROADMAP.md`](ROADMAP.md).
+**What is honestly still missing**, all recorded in [`ROADMAP.md`](ROADMAP.md):
+
+- **No independent audit.** One author, no external review.
+- **No end-to-end tests.** All 697 tests run against the code, never against a
+  browser with the extension actually loaded. This is the real gap: every bug
+  found in daily use so far has been of a kind the unit tests structurally
+  could not catch.
+- **No sync.** One machine, one vault. Your export *is* your backup.
+- **Card and identity item types** store fields but have no dedicated editor.
 
 ---
 
