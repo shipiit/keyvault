@@ -3,3 +3,6 @@ dist/
 coverage/
 *.zip
 .DS_Store
+
+# Internal planning docs, not published
+docs/superpowers/

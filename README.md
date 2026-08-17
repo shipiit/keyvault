@@ -173,13 +173,11 @@ Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before changing anything under
 
 ## Documentation
 
-| Document                                             | Contents                                                |
-| ---------------------------------------------------- | ------------------------------------------------------- |
-| [`ROADMAP.md`](ROADMAP.md)                           | What is left to build, in order, and the open questions |
-| [`SECURITY.md`](SECURITY.md)                         | Threat model and vulnerability reporting                |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md)                 | Setup and the rules governing `src/core/`               |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | Full design specification                               |
-| [`docs/superpowers/plans/`](docs/superpowers/plans/) | Task-level implementation plans                         |
+| Document                             | Contents                                                |
+| ------------------------------------ | ------------------------------------------------------- |
+| [`ROADMAP.md`](ROADMAP.md)           | What is left to build, in order, and the open questions |
+| [`SECURITY.md`](SECURITY.md)         | Threat model and vulnerability reporting                |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Setup and the rules governing `src/core/`               |
 
 ---
 

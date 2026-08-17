@@ -8,9 +8,8 @@ Expect an acknowledgement within 72 hours.
 
 ## Design
 
-KeyVault is local-only and zero-knowledge. See
-`docs/superpowers/specs/2026-08-17-keyvault-password-manager-design.md`
-for the full threat model.
+KeyVault is local-only and zero-knowledge. See `README.md` for the full threat
+model and the reasoning behind each design decision.
 
 - Vault encryption: AES-GCM-256
 - Key derivation: PBKDF2-SHA256, 600,000 iterations, per-vault random salt
