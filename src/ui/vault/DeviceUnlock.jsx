@@ -178,11 +178,17 @@ export function DeviceUnlockSection() {
  *
  * Renders nothing unless device unlock is actually set up, so the lock
  * screen never offers something that cannot work.
+ *
+ * When it is set up, it prompts by itself as soon as the lock screen
+ * appears — the whole point of Touch ID is not having to do anything, and a
+ * button you must click first is barely cheaper than typing. The button
+ * stays for the second attempt, because the first one can be declined.
  */
 export function DeviceUnlockButton({ onUnlocked }) {
   const [credentialId, setCredentialId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [prompted, setPrompted] = useState(false);
 
   const [rpId, setRpId] = useState(DEFAULT_RP_DOMAIN);
 
@@ -199,11 +205,24 @@ export function DeviceUnlockButton({ onUnlocked }) {
       .catch(() => {});
   }, []);
 
-  if (credentialId === null) {
+  const ready = credentialId !== null;
+
+  useEffect(() => {
+    // Exactly once per lock screen. Re-prompting after a decline would put
+    // the user in a loop with a system dialog they just dismissed, and
+    // there would be no way to reach the password field underneath it.
+    if (!ready || prompted) {
+      return;
+    }
+    setPrompted(true);
+    unlock({ automatic: true });
+  }, [ready, prompted]);
+
+  if (!ready) {
     return null;
   }
 
-  async function unlock() {
+  async function unlock(options = {}) {
     setBusy(true);
     setError(null);
     try {
@@ -212,14 +231,19 @@ export function DeviceUnlockButton({ onUnlocked }) {
       onUnlocked();
     } catch (caught) {
       // Always recoverable: the master password field is right there.
-      setError(caught.message);
+      //
+      // A declined prompt is a choice, not a fault. Reporting "the operation
+      // was aborted" to someone who deliberately hit Cancel — most likely to
+      // type their password instead — is noise, so the automatic attempt
+      // stays silent and simply leaves the button.
+      setError(options.automatic === true && isDeclined(caught) ? null : caught.message);
       setBusy(false);
     }
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <Button variant="secondary" size="lg" loading={busy} onClick={unlock}>
+      <Button variant="secondary" size="lg" loading={busy} onClick={() => unlock()}>
         Use Touch ID or device password
       </Button>
       {error !== null && (
@@ -228,5 +252,23 @@ export function DeviceUnlockButton({ onUnlocked }) {
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Did the user dismiss the prompt, rather than something going wrong?
+ *
+ * WebAuthn reports a cancelled prompt and a genuinely unusable authenticator
+ * with the same `NotAllowedError`, deliberately, so a site cannot tell the
+ * two apart and probe for authenticators. That ambiguity is fine here: both
+ * mean "carry on with the password", which is what the lock screen already
+ * offers.
+ *
+ * @param {Error} error
+ */
+function isDeclined(error) {
+  return (
+    error?.name === 'NotAllowedError' ||
+    /abort|cancel|not allowed|timed out/i.test(error?.message ?? '')
   );
 }

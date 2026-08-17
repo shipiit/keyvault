@@ -172,6 +172,41 @@ function BreachResult({ result }) {
           breached, and not which site it leaked from. Only the first five characters of its hash
           left this device; the password never did.
         </p>
+
+        {/* The obvious next question is "which site?", and the corpus simply
+            cannot answer it: it is a list of password hashes and counts,
+            with no site attribution in the data at all. That answer is only
+            useful with the route that *can* answer it, which is searching by
+            email instead of by password.
+
+            Linked, not fetched. Naming breaches means sending an email
+            address to a third party, and that is the user's call to make
+            deliberately — not something a vault should do on their behalf
+            while they are reading a page. The link carries no address for
+            the same reason: it would put it in a URL and in history. */}
+        {result.breached && (
+          <a
+            href="https://haveibeenpwned.com/"
+            target="_blank"
+            rel="noreferrer noopener"
+            className={[
+              'mt-1 inline-flex w-fit items-center gap-1 text-xs font-medium',
+              'text-[var(--color-accent)] hover:underline',
+              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+              'focus-visible:outline-[var(--color-ring)]',
+            ].join(' ')}
+          >
+            Which breaches was my account in?
+            <Icon.External className="size-3" aria-hidden="true" />
+          </a>
+        )}
+        {result.breached && (
+          <p className="text-xs leading-relaxed text-[var(--color-fg-subtle)]">
+            Searching by email address there names the actual sites. KeyVault does not do it for
+            you: that search would have to send your address to them, and it is worth deciding that
+            yourself.
+          </p>
+        )}
       </div>
     </div>
   );
