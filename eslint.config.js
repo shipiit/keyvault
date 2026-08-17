@@ -31,6 +31,13 @@ export default [
     },
   },
   {
+    // The extension layers may use Chrome APIs; src/core may not.
+    files: ['src/background/**/*.js', 'src/content/**/*.js', 'src/ui/**/*.js'],
+    languageOptions: {
+      globals: { chrome: 'readonly' },
+    },
+  },
+  {
     // src/core is the security-critical layer. Keeping it free of browser and
     // extension APIs is what lets a reviewer audit the cryptography by
     // running `npm test`, with no Chrome involved.

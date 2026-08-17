@@ -6,3 +6,4 @@ coverage/
 
 # Internal planning docs, not published
 docs/superpowers/
+dist/

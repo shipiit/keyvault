@@ -105,6 +105,54 @@ export async function sealVaultData(key, data) {
 }
 
 /**
+ * Decrypt vault data under an already-derived key.
+ *
+ * @param {CryptoKey} key
+ * @param {string} sealed base64 blob
+ * @returns {Promise<object>}
+ */
+export async function openVaultData(key, sealed) {
+  let json;
+  try {
+    json = await decryptString(key, fromBase64(sealed));
+  } catch (cause) {
+    throw new ParseError('vault data is corrupt and could not be decrypted', { cause });
+  }
+  try {
+    return JSON.parse(json);
+  } catch (cause) {
+    throw new ParseError('vault data decrypted but is not valid JSON', { cause });
+  }
+}
+
+/**
+ * Build a complete vault document from an already-derived key.
+ *
+ * Exists so callers re-keying a vault — a master password change — do not
+ * have to reconstruct the verifier themselves. Duplicating that constant
+ * outside this module would let the two definitions drift, and a drifted
+ * verifier makes a vault permanently unopenable.
+ *
+ * @param {CryptoKey} key
+ * @param {{name: string, hash: string, iterations: number, salt: Uint8Array}} kdf
+ * @param {object} data
+ * @returns {Promise<object>}
+ */
+export async function buildVaultDocument(key, kdf, data) {
+  return {
+    version: VAULT_VERSION,
+    kdf: {
+      name: kdf.name,
+      hash: kdf.hash,
+      iterations: kdf.iterations,
+      salt: toBase64(kdf.salt),
+    },
+    verifier: toBase64(await encryptString(key, VERIFIER_PLAINTEXT)),
+    data: await sealVaultData(key, data),
+  };
+}
+
+/**
  * @param {unknown} doc
  */
 function assertValidDocument(doc) {

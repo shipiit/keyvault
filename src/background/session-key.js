@@ -1,8 +1,13 @@
 import { exportRawKey, importRawKey } from '../core/kdf.js';
 import { toBase64, fromBase64 } from '../core/encoding.js';
+import { KeyVaultError } from '../core/errors.js';
+import { supportsTrustedContexts } from './browser-api.js';
 
 /** Session-storage key under which the unlocked vault key is parked. */
 const SESSION_KEY = 'keyvault.sessionKey';
+
+/** Raised when the host browser lacks a security guarantee the vault requires. */
+export class UnsupportedBrowserError extends KeyVaultError {}
 
 /**
  * Custody of the unlocked vault key.
@@ -32,8 +37,20 @@ export function createSessionKeyStore(chrome) {
      *
      * Must run before any key is stored. Without it, a content script running
      * in any page could read the vault key straight out of session storage.
+     *
+     * Fails closed. Not every Chromium fork ships `setAccessLevel`, and on one
+     * that does not, session storage is readable by content scripts. That is
+     * not a degraded feature — it is the removal of the boundary the key's
+     * confidentiality rests on, so the vault refuses to unlock rather than
+     * unlock insecurely.
      */
     async initialize() {
+      if (!supportsTrustedContexts(chrome)) {
+        throw new UnsupportedBrowserError(
+          'this browser cannot restrict extension session storage to trusted contexts, ' +
+            'so the vault key could be read by any web page; refusing to unlock',
+        );
+      }
       await chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
     },
 
@@ -41,6 +58,11 @@ export function createSessionKeyStore(chrome) {
      * @param {CryptoKey} key an extractable AES-GCM key
      */
     async store(key) {
+      if (!supportsTrustedContexts(chrome)) {
+        throw new UnsupportedBrowserError(
+          'refusing to store the vault key: session storage cannot be restricted here',
+        );
+      }
       if (key.extractable !== true) {
         throw new TypeError(
           'session key must be extractable: chrome.storage cannot hold a CryptoKey, ' +

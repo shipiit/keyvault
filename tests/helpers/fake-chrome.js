@@ -19,6 +19,16 @@ class FakeStorageArea {
     this.data = new Map();
     this.sessionLike = sessionLike;
     this.accessLevel = sessionLike ? 'TRUSTED_CONTEXTS' : null;
+
+    if (sessionLike) {
+      // An own property, not a prototype method, so a test can `delete` it to
+      // model a Chromium fork that ships storage.session without
+      // setAccessLevel. Capability detection has to be defeatable here or the
+      // fail-closed path is never actually exercised.
+      this.setAccessLevel = async ({ accessLevel }) => {
+        this.accessLevel = accessLevel;
+      };
+    }
   }
 
   async get(keys) {
@@ -48,10 +58,6 @@ class FakeStorageArea {
 
   async clear() {
     this.data.clear();
-  }
-
-  async setAccessLevel({ accessLevel }) {
-    this.accessLevel = accessLevel;
   }
 }
 

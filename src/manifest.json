@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "KeyVault",
+  "version": "0.1.0",
+  "description": "A local-only, zero-knowledge password manager. Your vault never leaves this device.",
+  "minimum_chrome_version": "116",
+
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_title": "KeyVault"
+  },
+
+  "permissions": ["storage", "alarms", "activeTab"],
+
+  "host_permissions": [],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+
+  "icons": {}
+}

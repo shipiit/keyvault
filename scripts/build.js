@@ -1,0 +1,51 @@
+/**
+ * Build the loadable extension into `dist/`.
+ *
+ * Deliberately a plain copy, not a bundle. Manifest V3 service workers
+ * support native ES modules, so `src/` runs as-is — which means the bytes
+ * Chrome executes are the bytes in this repository. For a password manager
+ * that is worth more than the few kilobytes a bundler would save: a reviewer
+ * can diff `dist/` against `src/` and see there is nothing else in there.
+ *
+ * A bundler becomes necessary in stage 3, when the UI arrives. The crypto
+ * core should stay unminified even then.
+ */
+
+import { cp, rm, mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve, join } from 'node:path';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const src = join(root, 'src');
+const dist = join(root, 'dist');
+
+async function listFiles(dir, base = dir) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const out = [];
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...(await listFiles(full, base)));
+    } else {
+      out.push(full.slice(base.length + 1));
+    }
+  }
+  return out;
+}
+
+await rm(dist, { recursive: true, force: true });
+await mkdir(dist, { recursive: true });
+await cp(src, dist, { recursive: true });
+
+// The manifest version is the one users see; keep it honest against package.json.
+const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+const manifestPath = join(dist, 'manifest.json');
+const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+if (manifest.version !== pkg.version) {
+  manifest.version = pkg.version;
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+const files = await listFiles(dist);
+console.warn(`Built dist/ — ${files.length} files`);
+console.warn('Load it with: chrome://extensions → Developer mode → Load unpacked → dist/');
