@@ -1,0 +1,26 @@
+{
+  "name": "keyvault",
+  "version": "0.1.0",
+  "description": "A local-only, zero-knowledge password manager for Chrome.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "vitest": "^4.1.10"
+  }
+}
