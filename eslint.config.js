@@ -20,6 +20,7 @@ export default [
         btoa: 'readonly',
         atob: 'readonly',
         structuredClone: 'readonly',
+        CryptoKey: 'readonly',
       },
     },
     rules: {
