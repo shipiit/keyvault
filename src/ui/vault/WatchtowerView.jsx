@@ -1,5 +1,7 @@
+import { useState } from 'preact/hooks';
 import { ItemAvatar, Icon } from './primitives.jsx';
 import { Button } from '../components/Button.jsx';
+import { ChangePasswordCard } from './ChangePasswordCard.jsx';
 
 /**
  * Watchtower — the security score, opened up.
@@ -42,6 +44,9 @@ const KINDS = [
 ];
 
 export function WatchtowerView({ score, entries, onOpenEntry, onOpenSettings }) {
+  // Which finding has its change-password card open. One at a time: several
+  // generated passwords on screen at once invites pasting the wrong one.
+  const [changing, setChanging] = useState(null);
   if (score === null) {
     return (
       <Pane>
@@ -142,26 +147,36 @@ export function WatchtowerView({ score, entries, onOpenEntry, onOpenSettings }) 
               </p>
               <ul className="flex flex-col gap-1">
                 {group.issues.map((issue) => (
-                  <li key={issue.id}>
-                    <button
-                      type="button"
-                      onClick={() => onOpenEntry(issue.id)}
+                  <li key={issue.id} className="flex flex-col gap-2">
+                    {/* A row, not a button containing buttons. Nesting
+                        interactive elements is invalid markup and leaves the
+                        inner control unreachable by keyboard. */}
+                    <div
                       className={[
-                        'flex w-full items-center gap-3 rounded-[var(--radius-card)] px-4 py-3 text-left',
+                        'flex items-center gap-3 rounded-[var(--radius-card)] px-4 py-3',
                         'border border-[var(--color-border)]',
                         'transition-colors duration-[var(--dur-150)]',
-                        'hover:border-[var(--color-border-strong)] hover:bg-[var(--color-field)]',
-                        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-                        'focus-visible:outline-[var(--color-ring)]',
+                        'hover:border-[var(--color-border-strong)]',
                       ].join(' ')}
                     >
-                      <ItemAvatar title={issue.title} size="sm" />
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate text-sm font-medium">{issue.title}</span>
-                        <span className="truncate text-xs text-[var(--color-fg-muted)]">
-                          {byId.get(issue.id)?.username || 'No username'}
+                      <button
+                        type="button"
+                        onClick={() => onOpenEntry(issue.id)}
+                        className={[
+                          'flex min-w-0 flex-1 items-center gap-3 rounded text-left',
+                          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                          'focus-visible:outline-[var(--color-ring)]',
+                        ].join(' ')}
+                      >
+                        <ItemAvatar title={issue.title} size="sm" />
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate text-sm font-medium">{issue.title}</span>
+                          <span className="truncate text-xs text-[var(--color-fg-muted)]">
+                            {byId.get(issue.id)?.username || 'No username'}
+                          </span>
                         </span>
-                      </span>
+                      </button>
+
                       {/* An entry can be wrong in more than one way, and the
                           other reasons are the argument for fixing it now. */}
                       {issue.problems.length > 1 && (
@@ -178,8 +193,29 @@ export function WatchtowerView({ score, entries, onOpenEntry, onOpenSettings }) 
                             ))}
                         </span>
                       )}
-                      <Icon.Chevron className="size-4 shrink-0 -rotate-90 text-[var(--color-fg-subtle)]" />
-                    </button>
+
+                      <button
+                        type="button"
+                        aria-expanded={changing === issue.id}
+                        onClick={() => setChanging(changing === issue.id ? null : issue.id)}
+                        className={[
+                          'shrink-0 rounded-[var(--radius-field)] px-2.5 py-1 text-xs font-semibold',
+                          'bg-[var(--color-accent)] text-white',
+                          'transition-[filter] duration-[var(--dur-150)] hover:brightness-110',
+                          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                          'focus-visible:outline-[var(--color-ring)]',
+                        ].join(' ')}
+                      >
+                        {changing === issue.id ? 'Cancel' : 'Change it'}
+                      </button>
+                    </div>
+
+                    {changing === issue.id && (
+                      <ChangePasswordCard
+                        entry={byId.get(issue.id) ?? { urls: [] }}
+                        onClose={() => setChanging(null)}
+                      />
+                    )}
                   </li>
                 ))}
               </ul>
