@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "build": "node scripts/build.js"
+    "build": "node scripts/build.js",
+    "dev": "vite"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

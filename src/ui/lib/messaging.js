@@ -7,7 +7,15 @@
  * component cannot reach plaintext it was not handed.
  */
 
+import { isDevEnvironment, handleDevMessage, devActiveTabUrl } from './dev-mock.js';
+
 const api = globalThis.chrome ?? globalThis.browser;
+
+/**
+ * True only when the UI is running in a plain browser tab (`npm run dev`),
+ * never inside the packaged extension — see `dev-mock.js`.
+ */
+const useDevMock = isDevEnvironment();
 
 /**
  * An error carried across the message boundary.
@@ -31,6 +39,14 @@ export class BackgroundError extends Error {
  * @throws {BackgroundError}
  */
 export async function send(type, payload = {}) {
+  if (useDevMock) {
+    try {
+      return await handleDevMessage(type, payload);
+    } catch (error) {
+      throw new BackgroundError({ name: error.name, message: error.message });
+    }
+  }
+
   const response = await api.runtime.sendMessage({ type, payload });
   if (response === undefined) {
     throw new BackgroundError({
@@ -73,6 +89,9 @@ export async function getActiveTabUrl() {
   //
   // If the URL is unavailable for any reason, the caller simply loses the
   // "For this site" grouping — the vault list still works in full.
+  if (useDevMock) {
+    return devActiveTabUrl();
+  }
   try {
     const [tab] = await api.tabs.query({ active: true, currentWindow: true });
     const url = tab?.url ?? '';

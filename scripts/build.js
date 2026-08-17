@@ -13,6 +13,7 @@
 
 import { cp, rm, mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 
@@ -37,9 +38,10 @@ async function listFiles(dir, base = dir) {
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
-// Copy the manifest plus the unbundled background and core.
+// Copy the manifest plus the unbundled background, content and core layers.
 await cp(join(src, 'manifest.json'), join(dist, 'manifest.json'));
 await cp(join(src, 'background'), join(dist, 'background'), { recursive: true });
+await cp(join(src, 'content'), join(dist, 'content'), { recursive: true });
 await cp(join(src, 'core'), join(dist, 'core'), { recursive: true });
 
 // The UI is compiled by Vite (Tailwind needs a build step, and the CSP
@@ -58,6 +60,21 @@ const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 if (manifest.version !== pkg.version) {
   manifest.version = pkg.version;
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+// A manifest that names a missing file fails at load time with an opaque
+// message, so check it here where the error can say what is wrong.
+const referenced = [
+  manifest.background?.service_worker,
+  manifest.action?.default_popup,
+  manifest.options_page,
+  ...(manifest.content_scripts ?? []).flatMap((entry) => entry.js ?? []),
+].filter(Boolean);
+
+for (const relative of referenced) {
+  if (!existsSync(join(dist, relative))) {
+    throw new Error(`manifest references ${relative}, which is not in dist/`);
+  }
 }
 
 const files = await listFiles(dist);
