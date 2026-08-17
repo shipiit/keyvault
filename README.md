@@ -6,7 +6,7 @@
   <a href="https://github.com/shipiit/keyvault/actions/workflows/ci.yml"><img src="https://github.com/shipiit/keyvault/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <img src="https://img.shields.io/badge/tests-697%20passing-success" alt="697 tests passing">
   <img src="https://img.shields.io/badge/coverage-97%25-success" alt="97% coverage">
-  <img src="https://img.shields.io/badge/dependencies-0%20runtime-success" alt="zero runtime dependencies">
+  <img src="https://img.shields.io/badge/runtime%20deps-preact%20%2B%20jsQR-informational" alt="two runtime dependencies: preact and jsQR">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT licence"></a>
 </p>
 
