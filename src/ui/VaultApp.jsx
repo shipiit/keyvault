@@ -36,9 +36,10 @@ const VIEW_TITLES = {
   identity: 'Identities',
   document: 'Documents',
   apiKey: 'API Keys',
+  sshKey: 'SSH Keys',
 };
 
-const CATEGORY_IDS = new Set(['login', 'apiKey', 'note', 'card', 'identity', 'document']);
+const CATEGORY_IDS = new Set(['login', 'apiKey', 'sshKey', 'note', 'card', 'identity', 'document']);
 
 /**
  * The vault application.
@@ -133,6 +134,7 @@ export function VaultApp({ compact = false }) {
       trash: trashCount,
       login: byType('login'),
       apiKey: byType('apiKey'),
+      sshKey: byType('sshKey'),
       note: byType('note'),
       card: byType('card'),
       identity: byType('identity'),

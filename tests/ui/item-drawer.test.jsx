@@ -48,6 +48,7 @@ describe('ItemDrawer security defaults', () => {
     expect(types.map((button) => button.textContent.trim())).toEqual([
       'Login',
       'API Key',
+      'SSH Key',
       'Secure Note',
       'Card',
       'Identity',

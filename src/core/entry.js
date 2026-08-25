@@ -54,6 +54,7 @@ export function isTrashed(entry) {
 export const ENTRY_TYPES = Object.freeze([
   'login',
   'apiKey',
+  'sshKey',
   'note',
   'card',
   'identity',
