@@ -141,6 +141,10 @@ Stages 1 to 5 are complete. Working today:
   already syncs, with a three-way merge that keeps both versions of a
   conflict rather than picking a winner, and orders changes by a revision
   counter rather than by a clock two machines disagree about
+- **Every item type, with its own fields** — a full-screen form that asks
+  what you are saving before asking for details. Cards read their issuer from
+  the number and check it against Luhn as it is typed; documents record where
+  a document is kept and deliberately do not store the file
 
 ## To do
 
@@ -164,43 +168,37 @@ merge that keeps both sides of a conflict. Phase two makes it automatic — on
 unlock, on change (debounced), on a timer — which is only worth doing once the
 merge has been watched working by hand.
 
-### 3. Item types beyond logins
-
-Cards, identities and documents can be created but are given login fields.
-Each needs its own shape — a card wants a number, expiry and security code —
-and the sidebar categories stay half-real until they have one.
-
-### 4. Duplicate detection
+### 3. Duplicate detection
 
 An import from another manager leaves near-duplicates. Find them and offer a
 merge. Worth doing before sync rather than after, since sync will make more
 of them.
 
-### 5. A command palette
+### 4. A command palette
 
 Search, jump to an entry, copy a password, generate one — without the mouse.
 
-### 6. Show a QR to move a credential to a phone
+### 5. Show a QR to move a credential to a phone
 
 The reverse of scanning. Needs a QR _encoder_, a few hundred lines, with no
 dependency worth taking for it.
 
-### 7. Multiple vaults
+### 6. Multiple vaults
 
 Separate vaults with separate keys, rather than one vault with tags. A real
 change to the model: every list, match and score gains a scope, and the
 migration of an existing vault is the delicate part.
 
-### 8. Folders
+### 7. Folders
 
 The data model carries them and nothing uses them. Tags cover most of what
 they would be for, so this may stay unbuilt on purpose.
 
-### 9. Change the master password from the UI
+### 8. Change the master password from the UI
 
 The handler exists and is tested; there is no way to reach it.
 
-### 10. Per-site rules
+### 9. Per-site rules
 
 "Never autofill here", for the handful of sites where it misbehaves.
 
