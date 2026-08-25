@@ -4,6 +4,7 @@ import { Button } from '../components/Button.jsx';
 import { TotpPanel } from './TotpPanel.jsx';
 import { TotpSetupCard } from './TotpSetupCard.jsx';
 import { SecurityTab } from './SecurityTab.jsx';
+import { CredentialPanel } from './CredentialPanel.jsx';
 import { Menu } from './Menu.jsx';
 import {
   getEntry,
@@ -230,6 +231,11 @@ export function ItemDetail({ entryId, onEdit, onClose, onChanged, compact = fals
       </div>
 
       <div className={`flex-1 overflow-y-auto ${compact ? 'px-4 py-3' : 'px-8 py-5'}`}>
+        {tab === 'details' && entry.type === 'apiKey' && (
+          <div className="mb-6">
+            <CredentialPanel entry={entry} />
+          </div>
+        )}
         {tab === 'details' && (
           <DetailsTab
             entry={entry}

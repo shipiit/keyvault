@@ -23,6 +23,7 @@ const VIEWS = [
 
 const CATEGORIES = [
   { id: 'login', label: 'Logins', icon: Icon.Lock },
+  { id: 'apiKey', label: 'API Keys', icon: Icon.Key },
   { id: 'note', label: 'Secure Notes', icon: Icon.Note },
   { id: 'card', label: 'Cards', icon: Icon.Card },
   { id: 'identity', label: 'Identities', icon: Icon.Identity },

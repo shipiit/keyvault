@@ -10,7 +10,7 @@ import {
 } from '../core/vault-data.js';
 import { entriesForUrl, entryMatchesUrl, toHostname, toOrigin } from '../core/url-match.js';
 import { parseTotpInput, generateTotp, totpTimeRemaining } from '../core/totp.js';
-import { computeSecurityScore } from '../core/security-score.js';
+import { computeSecurityScore, auditCredentials } from '../core/security-score.js';
 import { buildRecoveryKit } from '../core/recovery-kit.js';
 import { KeyVaultError } from '../core/errors.js';
 import { createBreachService } from './breach-service.js';
@@ -514,7 +514,14 @@ export function createMessageRouter({
         // Live entries only: a trashed password is not one the user still
         // relies on, and counting it would make the score worse for tidying
         // up.
-        return computeSecurityScore(liveEntries(data), { now: now(), breachedIds });
+        const live = liveEntries(data);
+        return {
+          ...computeSecurityScore(live, { now: now(), breachedIds }),
+          // Carried alongside rather than folded into the number: expiry and
+          // password strength answer different questions, and one figure
+          // mixing them would answer neither.
+          credentials: auditCredentials(live, now()),
+        };
       },
     },
 

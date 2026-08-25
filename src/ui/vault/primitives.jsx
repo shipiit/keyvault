@@ -268,6 +268,12 @@ export const Icon = {
     </>,
   ),
   Plus: make(<path d="M12 5v14M5 12h14" />),
+  Key: make(
+    <>
+      <circle cx="8" cy="12" r="4" />
+      <path d="M12 12h9M18 12v3M15.5 12v2" />
+    </>,
+  ),
   Close: make(<path d="M6 6l12 12M18 6L6 18" />),
   Moon: make(<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />),
   Sun: make(

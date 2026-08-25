@@ -118,6 +118,78 @@ export function WatchtowerView({ score, entries, onOpenEntry, onOpenSettings }) 
         )}
       </div>
 
+      {/* Credentials are audited on expiry and environment, not strength, so
+          they get their own section rather than a row in a list about
+          passwords. */}
+      {score.credentials !== undefined && score.credentials.checked > 0 && (
+        <section className="mb-8">
+          <h2 className="text-sm font-semibold">
+            API credentials
+            <span className="ml-2 tabular text-xs font-normal text-[var(--color-fg-muted)]">
+              {score.credentials.checked}
+            </span>
+          </h2>
+          <p className="mb-3 mt-0.5 max-w-[60ch] text-xs leading-relaxed text-[var(--color-fg-muted)]">
+            Judged on whether they still work and where they point — not on how hard they would be
+            to guess, which is the issuer&rsquo;s choice rather than yours.
+          </p>
+
+          {score.credentials.expired.length === 0 &&
+          score.credentials.expiring.length === 0 &&
+          score.credentials.misfiled.length === 0 ? (
+            <p className="text-xs text-[var(--color-fg-muted)]">
+              Nothing expired or expiring. {score.credentials.production} filed as production.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {[
+                ...score.credentials.expired.map((c) => ({ ...c, kind: 'expired' })),
+                ...score.credentials.expiring.map((c) => ({ ...c, kind: 'expiring' })),
+                ...score.credentials.misfiled.map((c) => ({ ...c, kind: 'misfiled' })),
+              ].map((item) => (
+                <li key={`${item.kind}-${item.id}`}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenEntry(item.id)}
+                    className={[
+                      'flex w-full items-center gap-3 rounded-[var(--radius-card)] px-4 py-3 text-left',
+                      'border border-[var(--color-border)]',
+                      'transition-colors duration-[var(--dur-150)]',
+                      'hover:border-[var(--color-border-strong)] hover:bg-[var(--color-field)]',
+                      'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                      'focus-visible:outline-[var(--color-ring)]',
+                    ].join(' ')}
+                  >
+                    <ItemAvatar title={item.title} size="sm" />
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-medium">{item.title}</span>
+                      <span className="truncate text-xs text-[var(--color-fg-muted)]">
+                        {item.provider ?? 'Unknown issuer'} · {item.environment}
+                      </span>
+                    </span>
+                    <span
+                      className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                      style={{
+                        backgroundColor:
+                          item.kind === 'expiring'
+                            ? 'color-mix(in srgb, var(--color-warn) 16%, transparent)'
+                            : 'color-mix(in srgb, var(--color-danger) 16%, transparent)',
+                        color:
+                          item.kind === 'expiring' ? 'var(--color-warn)' : 'var(--color-danger)',
+                      }}
+                    >
+                      {item.kind === 'expired' && `Expired ${Math.abs(item.days)}d ago`}
+                      {item.kind === 'expiring' && `Expires in ${item.days}d`}
+                      {item.kind === 'misfiled' && 'Looks like production'}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       {groups.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <div className="grid size-11 place-items-center rounded-full bg-[var(--color-success)]/10">

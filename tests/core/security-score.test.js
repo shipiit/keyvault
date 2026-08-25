@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { computeSecurityScore, describeIssues } from '../../src/core/security-score.js';
+import {
+  computeSecurityScore,
+  auditCredentials,
+  describeIssues,
+} from '../../src/core/security-score.js';
 
 const NOW = 1700000000000;
 const YEAR = 365 * 86400000;
@@ -152,5 +156,86 @@ describe('describeIssues', () => {
 
   it('returns nothing for a clean vault', () => {
     expect(describeIssues({ breached: 0, reused: 0, weak: 0, old: 0 })).toEqual([]);
+  });
+});
+
+describe('auditCredentials', () => {
+  const DAY = 86400000;
+  const AT = 1_700_000_000_000;
+  const key = (over = {}) => ({
+    id: over.id ?? 'k1',
+    type: 'apiKey',
+    title: over.title ?? 'Stripe',
+    password: over.password ?? 'sk_live_EXAMPLE-not-a-real-key',
+    fields: { credential: over.credential ?? {} },
+    deletedAt: over.deletedAt ?? null,
+  });
+
+  it('reports expired and expiring separately', () => {
+    const result = auditCredentials(
+      [
+        key({ id: 'a', credential: { expires: AT - 3 * DAY } }),
+        key({ id: 'b', credential: { expires: AT + 5 * DAY } }),
+        key({ id: 'c', credential: { expires: AT + 300 * DAY } }),
+      ],
+      AT,
+    );
+    expect(result.expired.map((e) => e.id)).toEqual(['a']);
+    expect(result.expiring.map((e) => e.id)).toEqual(['b']);
+  });
+
+  it('orders by urgency, not by insertion', () => {
+    const result = auditCredentials(
+      [
+        key({ id: 'later', credential: { expires: AT + 20 * DAY } }),
+        key({ id: 'sooner', credential: { expires: AT + 2 * DAY } }),
+      ],
+      AT,
+    );
+    expect(result.expiring.map((e) => e.id)).toEqual(['sooner', 'later']);
+  });
+
+  it('counts production credentials and flags misfiled ones', () => {
+    const result = auditCredentials(
+      [
+        key({ id: 'a', credential: { environment: 'production' } }),
+        key({ id: 'b', credential: { environment: 'development' } }),
+      ],
+      AT,
+    );
+    expect(result.production).toBe(1);
+    expect(result.misfiled.map((e) => e.id)).toEqual(['b']);
+  });
+
+  it('ignores trashed credentials', () => {
+    const result = auditCredentials(
+      [key({ deletedAt: AT, credential: { expires: AT - DAY } })],
+      AT,
+    );
+    expect(result.checked).toBe(0);
+    expect(result.expired).toEqual([]);
+  });
+
+  it('ignores logins entirely', () => {
+    const result = auditCredentials([{ id: 'l', type: 'login', password: 'hunter2' }], AT);
+    expect(result.checked).toBe(0);
+  });
+
+  it('never carries a secret in its output', () => {
+    const secret = 'sk_live_EXAMPLE-not-a-real-key';
+    const result = auditCredentials([key({ password: secret })], AT);
+    expect(JSON.stringify(result)).not.toContain(secret);
+  });
+});
+
+describe('the password score and API keys', () => {
+  it('does not judge an API key by password rules', () => {
+    // An API key is whatever length its issuer chose. Scoring it as a weak
+    // password fills Watchtower with findings nobody can act on.
+    const score = computeSecurityScore([
+      { id: 'k', type: 'apiKey', title: 'Key', password: 'short', createdAt: Date.now() },
+    ]);
+    expect(score.checked).toBe(0);
+    expect(score.counts.weak).toBe(0);
   });
 });

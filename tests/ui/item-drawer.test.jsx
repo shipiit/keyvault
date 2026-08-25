@@ -47,6 +47,7 @@ describe('ItemDrawer security defaults', () => {
     const types = screen.getAllByRole('radio');
     expect(types.map((button) => button.textContent.trim())).toEqual([
       'Login',
+      'API Key',
       'Secure Note',
       'Card',
       'Identity',
