@@ -137,36 +137,32 @@ Stages 1 to 5 are complete. Working today:
 - **Missing two-factor** — logins on sites known to support a second factor
   where no code is stored, checked against a bundled list rather than by
   asking anyone which sites you use
+- **Sync, phase one** — two machines through a file in a folder the user
+  already syncs, with a three-way merge that keeps both versions of a
+  conflict rather than picking a winner, and orders changes by a revision
+  counter rather than by a clock two machines disagree about
 
 ## To do
 
 Ordered by what would be felt first.
 
-### 1. Encrypted sync
+### 1. Travel Mode
 
-The largest remaining gap: one machine, one vault, and an export as the only
-backup. **Designed, not built** —
-[`docs/design/2026-08-25-encrypted-sync.md`](docs/design/2026-08-25-encrypted-sync.md).
+**Designed** —
+[`docs/design/2026-08-25-travel-mode.md`](docs/design/2026-08-25-travel-mode.md)
+— and now unblocked, because sync gives it a real restore path instead of
+"your backup file is the only copy".
 
-The transport recommendation is a file the user picks inside a folder their
-machine already syncs, which adds no OAuth, no permission and no network
-request. The hard part is the merge, and the model turned out to be most of
-the way there already: soft deletion and soft archiving are tombstones, and a
-hard delete would have been unmergeable.
+The design records two things found by reading the code: `storage.js` keeps a
+rotating copy of the previous vault that a naive implementation would leave
+behind, and `chrome.storage.local` is LevelDB, so deletion is not erasure.
 
-Ships in phases; phase one is a manual **Sync now**, which on its own is
-automated encrypted backup into a folder that already leaves the machine.
+### 2. Sync, phase two
 
-### 2. Travel Mode
-
-**Designed, deliberately unbuilt** —
-[`docs/design/2026-08-25-travel-mode.md`](docs/design/2026-08-25-travel-mode.md).
-
-It removes data from the only place that data exists, so it wants a real
-restore path first — which is sync. The design also records two things found
-by reading the code: `storage.js` keeps a rotating copy of the previous vault
-that any naive implementation would leave behind, and `chrome.storage.local`
-is LevelDB, so deletion is not erasure.
+Phase one shipped: a file you choose, a button you press, and a three-way
+merge that keeps both sides of a conflict. Phase two makes it automatic — on
+unlock, on change (debounced), on a timer — which is only worth doing once the
+merge has been watched working by hand.
 
 ### 3. Item types beyond logins
 
