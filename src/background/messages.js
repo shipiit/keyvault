@@ -1,4 +1,11 @@
-import { createEntry, updateEntry, trashEntry, restoreEntry } from '../core/entry.js';
+import {
+  createEntry,
+  updateEntry,
+  trashEntry,
+  restoreEntry,
+  archiveEntry,
+  unarchiveEntry,
+} from '../core/entry.js';
 import {
   addEntry,
   replaceEntry,
@@ -7,6 +14,7 @@ import {
   searchEntries,
   liveEntries,
   trashedEntries,
+  archivedEntries,
 } from '../core/vault-data.js';
 import { entriesForUrl, entryMatchesUrl, toHostname, toOrigin } from '../core/url-match.js';
 import { parseTotpInput, generateTotp, totpTimeRemaining } from '../core/totp.js';
@@ -91,6 +99,7 @@ function toSummary(entry) {
     hasTotp: entry.totp !== null && entry.totp !== undefined,
     favorite: entry.favorite === true,
     deletedAt: entry.deletedAt ?? null,
+    archivedAt: entry.archivedAt ?? null,
     autoSubmit: entry.autoSubmit,
     lastUsedAt: entry.lastUsedAt,
     updatedAt: entry.updatedAt,
@@ -552,6 +561,52 @@ export function createMessageRouter({
             knownSites: knownSiteCount(),
           },
         };
+      },
+    },
+
+    'entries/archive': {
+      contentScript: false,
+      /**
+       * File an entry away without deleting it.
+       *
+       * No confirmation: archiving is reversible and removes nothing. The
+       * confirmation belongs on the one action that destroys something.
+       */
+      handle: async ({ id }) => {
+        let archived = null;
+        await vault.mutate((data) => {
+          const existing = findEntry(data, id);
+          if (existing === null) {
+            throw new Error(`entry not found: ${id}`);
+          }
+          archived = archiveEntry(existing, now());
+          return replaceEntry(data, archived);
+        });
+        return { entry: toSummary(archived) };
+      },
+    },
+
+    'entries/unarchive': {
+      contentScript: false,
+      handle: async ({ id }) => {
+        let restored = null;
+        await vault.mutate((data) => {
+          const existing = findEntry(data, id);
+          if (existing === null) {
+            throw new Error(`entry not found: ${id}`);
+          }
+          restored = unarchiveEntry(existing);
+          return replaceEntry(data, restored);
+        });
+        return { entry: toSummary(restored) };
+      },
+    },
+
+    'entries/archived': {
+      contentScript: false,
+      handle: async () => {
+        const data = await vault.getData();
+        return { entries: archivedEntries(data).map(toListItem) };
       },
     },
 

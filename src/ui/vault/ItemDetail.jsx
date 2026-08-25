@@ -16,6 +16,8 @@ import {
   createEntryRemote,
   getTotp,
   fillOnActiveTab,
+  archiveEntryRemote,
+  unarchiveEntryRemote,
 } from '../lib/messaging.js';
 import { relativeTime } from './ItemList.jsx';
 
@@ -109,6 +111,17 @@ function buildActions({ entry, onChanged, onClose }) {
       },
     },
     { type: 'separator' },
+    {
+      // Above the trash, and not tinted as a danger: archiving removes
+      // nothing. Somebody closing an old account should reach for this
+      // rather than deleting the record of it.
+      label: entry.archivedAt === null ? 'Archive' : 'Restore from archive',
+      icon: Icon.Box,
+      onSelect: async () => {
+        await (entry.archivedAt === null ? archiveEntryRemote : unarchiveEntryRemote)(entry.id);
+        onChanged();
+      },
+    },
     {
       label: 'Move to trash',
       icon: Icon.Trash,

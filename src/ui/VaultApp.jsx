@@ -11,7 +11,8 @@ import { WatchtowerView } from './vault/WatchtowerView.jsx';
 import { suggestTags, tagCounts, hasTag } from '../core/tags.js';
 import { UpdateBanner } from './vault/UpdateBanner.jsx';
 import { RecoveryKit } from './vault/RecoveryKit.jsx';
-import { restoreEntryRemote, listTrash } from './lib/messaging.js';
+import { ArchiveView } from './vault/ArchiveView.jsx';
+import { restoreEntryRemote, listTrash, listArchive } from './lib/messaging.js';
 import { Unlock } from './screens/Unlock.jsx';
 import { Onboarding } from './screens/Onboarding.jsx';
 import { Icon } from './vault/primitives.jsx';
@@ -30,6 +31,7 @@ const VIEW_TITLES = {
   favorites: 'Favorites',
   recent: 'Recent',
   trash: 'Trash',
+  archive: 'Archive',
   login: 'Logins',
   note: 'Secure Notes',
   card: 'Cards',
@@ -114,12 +116,18 @@ export function VaultApp({ compact = false }) {
   }, [status, refreshEntries]);
 
   const [trashCount, setTrashCount] = useState(0);
+  const [archiveCount, setArchiveCount] = useState(0);
 
+  // Both live outside `entries`, which holds only what is in circulation, so
+  // their counts have to be fetched rather than derived.
   useEffect(() => {
     if (status?.initialized && !status.locked) {
       listTrash()
         .then(({ entries: trashed }) => setTrashCount(trashed.length))
         .catch(() => setTrashCount(0));
+      listArchive()
+        .then(({ entries: archived }) => setArchiveCount(archived.length))
+        .catch(() => setArchiveCount(0));
     }
   }, [status, entries]);
 
@@ -132,6 +140,7 @@ export function VaultApp({ compact = false }) {
       favorites: list.filter((e) => e.favorite).length,
       recent: list.filter((e) => (e.lastUsedAt ?? 0) > recentCutoff).length,
       trash: trashCount,
+      archive: archiveCount,
       login: byType('login'),
       apiKey: byType('apiKey'),
       sshKey: byType('sshKey'),
@@ -140,7 +149,7 @@ export function VaultApp({ compact = false }) {
       identity: byType('identity'),
       document: byType('document'),
     };
-  }, [entries, trashCount]);
+  }, [entries, trashCount, archiveCount]);
 
   const visible = useMemo(() => {
     let list = entries ?? [];
@@ -149,7 +158,13 @@ export function VaultApp({ compact = false }) {
     else if (view === 'recent') {
       const cutoff = Date.now() - 7 * 86400000;
       list = list.filter((e) => (e.lastUsedAt ?? 0) > cutoff);
-    } else if (view === 'trash' || view === 'watchtower' || view === 'recovery') list = [];
+    } else if (
+      view === 'trash' ||
+      view === 'watchtower' ||
+      view === 'recovery' ||
+      view === 'archive'
+    )
+      list = [];
     else if (view.startsWith('tag:')) {
       // Prefixed rather than a separate piece of state: every other view is a
       // string, and a second selector would need keeping in step with it.
@@ -291,6 +306,8 @@ export function VaultApp({ compact = false }) {
           <GeneratorPage />
         ) : view === 'trash' ? (
           <TrashView onChanged={refreshEntries} />
+        ) : view === 'archive' ? (
+          <ArchiveView onChanged={refreshEntries} />
         ) : view === 'recovery' ? (
           <RecoveryKit />
         ) : view === 'watchtower' ? (

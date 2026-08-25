@@ -107,6 +107,12 @@ export function entryMatchesUrl(entry, pageUrl) {
   if (typeof entry.deletedAt === 'number') {
     return false;
   }
+  // Nor is an archived one — that is most of the point of archiving. A
+  // closed account should stop being suggested at the login form of the
+  // service you closed it with.
+  if (typeof entry.archivedAt === 'number') {
+    return false;
+  }
   // Only logins are ever offered to a page. A stored card number or passport
   // detail must never reach a login form, and the type is the gate rather
   // than a display label.

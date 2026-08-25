@@ -104,6 +104,58 @@ describe('message router', () => {
     });
   });
 
+  describe('archiving', () => {
+    it('stops offering an archived login to a page', async () => {
+      // The whole reason to archive rather than delete: you keep the record
+      // and it stops being suggested at the login form it belonged to.
+      const id = await addGithubEntry();
+      await send('entries/archive', { id });
+
+      const forPage = await router.handle(
+        { type: 'credentials/forUrl', payload: { url: 'https://github.com/login' } },
+        PAGE,
+      );
+      expect(forPage.data.entries).toEqual([]);
+    });
+
+    it('refuses to release an archived credential even when named directly', async () => {
+      // A page that already knows the id must not get it back by asking.
+      const id = await addGithubEntry();
+      await send('entries/archive', { id });
+
+      const filled = await router.handle(
+        { type: 'credentials/fill', payload: { id, url: 'https://github.com/login' } },
+        PAGE,
+      );
+      expect(filled.ok).toBe(false);
+      expect(JSON.stringify(filled)).not.toContain('S3cr3t!');
+    });
+
+    it('keeps it out of the list and the score, but in the archive', async () => {
+      const id = await addGithubEntry();
+      await send('entries/archive', { id });
+
+      expect((await send('entries/list', {})).data.entries).toEqual([]);
+      expect((await send('security/score', {})).data.checked).toBe(0);
+      expect((await send('entries/archived', {})).data.entries[0].id).toBe(id);
+    });
+
+    it('restores it to circulation', async () => {
+      const id = await addGithubEntry();
+      await send('entries/archive', { id });
+      await send('entries/unarchive', { id });
+
+      expect((await send('entries/list', {})).data.entries[0].id).toBe(id);
+      expect((await send('entries/archived', {})).data.entries).toEqual([]);
+    });
+
+    it('is not the trash', async () => {
+      const id = await addGithubEntry();
+      await send('entries/archive', { id });
+      expect((await send('entries/trash', {})).data.entries).toEqual([]);
+    });
+  });
+
   describe('custom fields and the trust boundary', () => {
     it('gives the vault list the searchable text, and a content script none of it', async () => {
       // Two projections on purpose. The list filters on custom field labels,
