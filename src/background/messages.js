@@ -12,6 +12,7 @@ import { entriesForUrl, entryMatchesUrl, toHostname, toOrigin } from '../core/ur
 import { parseTotpInput, generateTotp, totpTimeRemaining } from '../core/totp.js';
 import { computeSecurityScore, auditCredentials } from '../core/security-score.js';
 import { searchableText, countFields } from '../core/custom-fields.js';
+import { findMissingTwoFactor, knownSiteCount } from '../core/two-factor-sites.js';
 import { buildRecoveryKit } from '../core/recovery-kit.js';
 import { KeyVaultError } from '../core/errors.js';
 import { createBreachService } from './breach-service.js';
@@ -542,6 +543,14 @@ export function createMessageRouter({
           // password strength answer different questions, and one figure
           // mixing them would answer neither.
           credentials: auditCredentials(live, now()),
+          // Logins on sites known to support two-factor where no code is
+          // stored. The site list is bundled, never fetched: asking anyone
+          // which sites support 2FA would mean telling them which sites you
+          // hold accounts on.
+          twoFactor: {
+            missing: findMissingTwoFactor(live),
+            knownSites: knownSiteCount(),
+          },
         };
       },
     },
