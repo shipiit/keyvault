@@ -51,7 +51,14 @@ export function isTrashed(entry) {
  * gate rather than a label. `entriesForUrl` and the fill path both filter on
  * it.
  */
-export const ENTRY_TYPES = Object.freeze(['login', 'note', 'card', 'identity', 'document']);
+export const ENTRY_TYPES = Object.freeze([
+  'login',
+  'apiKey',
+  'note',
+  'card',
+  'identity',
+  'document',
+]);
 
 /** @param {unknown} value */
 function normaliseType(value) {

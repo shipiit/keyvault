@@ -10,7 +10,8 @@ import {
 } from '../core/vault-data.js';
 import { entriesForUrl, entryMatchesUrl, toHostname, toOrigin } from '../core/url-match.js';
 import { parseTotpInput, generateTotp, totpTimeRemaining } from '../core/totp.js';
-import { computeSecurityScore } from '../core/security-score.js';
+import { computeSecurityScore, auditCredentials } from '../core/security-score.js';
+import { searchableText, countFields } from '../core/custom-fields.js';
 import { buildRecoveryKit } from '../core/recovery-kit.js';
 import { KeyVaultError } from '../core/errors.js';
 import { createBreachService } from './breach-service.js';
@@ -130,6 +131,26 @@ function isTrustedSender(sender, chrome) {
 }
 
 /**
+ * A list row for the extension's own UI.
+ *
+ * Deliberately separate from `toSummary`, which is what a content script
+ * receives. This adds the text the vault list filters on — custom field
+ * labels, and the values of fields that are not hidden — and that must never
+ * cross into a web page. Two projections is the point: one boundary each.
+ *
+ * @param {object} entry
+ */
+function toListItem(entry) {
+  const counts = countFields(entry);
+  return {
+    ...toSummary(entry),
+    // Hidden field values are excluded upstream by `searchableText`.
+    searchText: searchableText(entry),
+    customFields: counts.fields,
+  };
+}
+
+/**
  * The extension's internal API.
  *
  * Every handler declares whether a content script may call it. The default is
@@ -200,7 +221,7 @@ export function createMessageRouter({
       contentScript: false,
       handle: async ({ query = '' } = {}) => {
         const data = await vault.getData();
-        return { entries: searchEntries(data, query).map(toSummary) };
+        return { entries: searchEntries(data, query).map(toListItem) };
       },
     },
 
@@ -514,7 +535,14 @@ export function createMessageRouter({
         // Live entries only: a trashed password is not one the user still
         // relies on, and counting it would make the score worse for tidying
         // up.
-        return computeSecurityScore(liveEntries(data), { now: now(), breachedIds });
+        const live = liveEntries(data);
+        return {
+          ...computeSecurityScore(live, { now: now(), breachedIds }),
+          // Carried alongside rather than folded into the number: expiry and
+          // password strength answer different questions, and one figure
+          // mixing them would answer neither.
+          credentials: auditCredentials(live, now()),
+        };
       },
     },
 

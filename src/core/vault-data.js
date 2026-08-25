@@ -1,3 +1,5 @@
+import { searchableText } from './custom-fields.js';
+
 /** Settings applied to a freshly created vault. */
 export const DEFAULT_SETTINGS = Object.freeze({
   autoLockMinutes: 15,
@@ -114,9 +116,13 @@ export function findEntry(vault, id) {
 }
 
 /**
- * Substring search across title, username, URLs, and tags.
+ * Substring search across title, username, URLs, tags, and custom fields.
  *
- * Passwords, notes, and TOTP secrets are deliberately excluded. Including
+ * Custom fields are matched on their label always, and on their value only
+ * when the field is not hidden.
+ *
+ * Passwords, notes, hidden custom fields, and TOTP secrets are deliberately
+ * excluded. Including
  * them would turn the search box into an oracle — type a guessed secret at an
  * unlocked browser and see whether it matches — and would surface secret
  * material in a results list.
@@ -134,7 +140,16 @@ export function searchEntries(vault, query) {
     return live;
   }
   return live.filter((entry) => {
-    const haystack = [entry.title, entry.username, ...entry.urls, ...entry.tags]
+    // Custom fields are searchable by label, and by value only when the
+    // field is not hidden — see `searchableText`. Indexing a hidden value
+    // would let a typed query confirm a secret a character at a time.
+    const haystack = [
+      entry.title,
+      entry.username,
+      ...entry.urls,
+      ...entry.tags,
+      searchableText(entry),
+    ]
       .join('\n')
       .toLowerCase();
     return haystack.includes(needle);

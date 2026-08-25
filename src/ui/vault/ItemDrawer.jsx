@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { IconButton, Icon } from './primitives.jsx';
 import { Button } from '../components/Button.jsx';
 import { Field } from '../components/Field.jsx';
+import { Select } from '../components/Select.jsx';
+import { CustomFieldsEditor } from './CustomFieldsEditor.jsx';
+import { sectionsOf, pruneSections } from '../../core/custom-fields.js';
+import { CREDENTIAL_TYPES, ENVIRONMENTS } from '../../core/api-credential.js';
 import { GeneratorPopover } from './GeneratorPopover.jsx';
 import { assessPassword } from '../../core/password-strength.js';
 import { parseTotpInput } from '../../core/totp.js';
@@ -9,14 +13,50 @@ import { scanOpenTabsForTotp } from '../lib/messaging.js';
 
 const TYPES = [
   { id: 'login', label: 'Login', icon: Icon.Lock },
+  { id: 'apiKey', label: 'API Key', icon: Icon.Key },
   { id: 'note', label: 'Secure Note', icon: Icon.Note },
   { id: 'card', label: 'Card', icon: Icon.Card },
   { id: 'identity', label: 'Identity', icon: Icon.Identity },
   { id: 'document', label: 'Document', icon: Icon.Document },
 ];
 
+/**
+ * Epoch milliseconds to the YYYY-MM-DD an <input type="date"> expects.
+ *
+ * Built from the local calendar date rather than toISOString(), which
+ * converts to UTC first and lands on the previous day for anyone west of
+ * Greenwich for part of their day.
+ */
+function toDateInput(value) {
+  if (typeof value !== 'number') {
+    return '';
+  }
+  const date = new Date(value);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** And back again. Midday local, so a timezone shift cannot move the date. */
+function fromDateInput(value) {
+  if (typeof value !== 'string' || value === '') {
+    return null;
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) {
+    return null;
+  }
+  return new Date(year, month - 1, day, 12, 0, 0).getTime();
+}
+
 const EMPTY = {
   title: '',
+  sections: [],
+  credentialType: 'apiKey',
+  environment: 'unknown',
+  hostname: '',
+  validFrom: '',
+  expires: '',
   username: '',
   password: '',
   url: '',
@@ -49,8 +89,16 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
       return;
     }
     setType(entry.type ?? 'login');
+    const credential = entry.fields?.credential ?? {};
     setValues({
       title: entry.title ?? '',
+      sections: sectionsOf(entry),
+      credentialType: credential.credentialType ?? 'apiKey',
+      environment: credential.environment ?? 'unknown',
+      hostname: credential.hostname ?? '',
+      // <input type="date"> speaks YYYY-MM-DD; the vault stores epoch ms.
+      validFrom: toDateInput(credential.validFrom),
+      expires: toDateInput(credential.expires),
       username: entry.username ?? '',
       password: entry.password ?? '',
       url: entry.urls?.[0] ?? '',
@@ -78,6 +126,11 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
 
   const set = (key) => (event) =>
     setValues((current) => ({ ...current, [key]: event.currentTarget.value }));
+
+  // Select hands over the value itself, not an event. Reusing `set` here
+  // silently stored `undefined` and the field kept its default — the form
+  // looked right on screen and saved the wrong thing.
+  const setValue = (key) => (value) => setValues((current) => ({ ...current, [key]: value }));
 
   const strength = values.password === '' ? null : assessPassword(values.password);
 
@@ -107,7 +160,28 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
     }
     setSaving(true);
     try {
-      await onSave({ ...values, type });
+      await onSave({
+        ...values,
+        type,
+        // One object, built once. `fields` is where the entry model keeps
+        // per-type data; assigning it twice — once for the credential, once
+        // for the sections — would have the second overwrite the first and
+        // silently drop whichever was assembled earlier.
+        fields: {
+          sections: pruneSections(values.sections),
+          ...(type === 'apiKey'
+            ? {
+                credential: {
+                  credentialType: values.credentialType,
+                  environment: values.environment,
+                  hostname: values.hostname.trim(),
+                  validFrom: fromDateInput(values.validFrom),
+                  expires: fromDateInput(values.expires),
+                },
+              }
+            : {}),
+        },
+      });
     } catch (error) {
       setErrors({ form: error.message });
       setSaving(false);
@@ -137,7 +211,11 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
       <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto px-5 pb-4">
           {!isEdit && (
-            <div className="mb-4 grid grid-cols-5 gap-1.5" role="radiogroup" aria-label="Item type">
+            <div
+              className="mb-4 grid grid-cols-3 gap-1.5 sm:grid-cols-6"
+              role="radiogroup"
+              aria-label="Item type"
+            >
               {TYPES.map((option) => {
                 const IconComponent = option.icon;
                 const active = type === option.id;
@@ -184,6 +262,56 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
                 autoComplete="off"
                 onInput={set('username')}
               />
+            )}
+
+            {type === 'apiKey' && (
+              <>
+                <Field
+                  label="Username or client ID"
+                  value={values.username}
+                  placeholder="Optional — some APIs pair a key with an ID"
+                  autoComplete="off"
+                  onInput={set('username')}
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Select
+                    label="Type"
+                    value={values.credentialType}
+                    onChange={setValue('credentialType')}
+                    options={CREDENTIAL_TYPES}
+                  />
+                  <Select
+                    label="Environment"
+                    value={values.environment}
+                    onChange={setValue('environment')}
+                    options={ENVIRONMENTS}
+                  />
+                </div>
+
+                <Field
+                  label="Hostname"
+                  value={values.hostname}
+                  placeholder="e.g. api.stripe.com"
+                  autoComplete="off"
+                  onInput={set('hostname')}
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Field
+                    label="Valid from"
+                    type="date"
+                    value={values.validFrom}
+                    onInput={set('validFrom')}
+                  />
+                  <Field
+                    label="Expires"
+                    type="date"
+                    value={values.expires}
+                    onInput={set('expires')}
+                  />
+                </div>
+              </>
             )}
 
             <div className="flex flex-col gap-1.5">
@@ -328,6 +456,17 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
             />
 
             <div className="flex flex-col gap-1.5">
+              {/* Above the notes box on purpose: it is the field these exist to
+                  empty, and offering the structured option first is what stops a
+                  recovery code being pasted into free text. */}
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-[var(--color-fg)]">Custom fields</span>
+                <CustomFieldsEditor
+                  sections={values.sections}
+                  onChange={(sections) => setValues((current) => ({ ...current, sections }))}
+                />
+              </div>
+
               <label htmlFor="drawer-notes" className="text-sm font-medium text-[var(--color-fg)]">
                 Notes
               </label>

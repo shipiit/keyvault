@@ -130,6 +130,7 @@ export function VaultApp({ compact = false }) {
       recent: list.filter((e) => (e.lastUsedAt ?? 0) > recentCutoff).length,
       trash: trashCount,
       login: byType('login'),
+      apiKey: byType('apiKey'),
       note: byType('note'),
       card: byType('card'),
       identity: byType('identity'),
@@ -150,7 +151,14 @@ export function VaultApp({ compact = false }) {
     const needle = query.trim().toLowerCase();
     if (needle !== '') {
       list = list.filter((entry) =>
-        [entry.title, entry.username, ...(entry.urls ?? []), ...(entry.tags ?? [])]
+        [
+          entry.title,
+          entry.username,
+          ...(entry.urls ?? []),
+          ...(entry.tags ?? []),
+          // Custom field labels, and values of fields that are not hidden.
+          entry.searchText ?? '',
+        ]
           .join('\n')
           .toLowerCase()
           .includes(needle),
@@ -169,6 +177,9 @@ export function VaultApp({ compact = false }) {
       autoSubmit: values.autoSubmit === true,
       type: values.type ?? 'login',
       totpUri: values.totpUri.trim() === '' ? undefined : values.totpUri.trim(),
+      // Only for the types that carry them. Sending `undefined` would wipe an
+      // existing credential block on every edit of a login.
+      ...(values.fields === undefined ? {} : { fields: values.fields }),
     };
 
     if (drawer?.entry != null) {

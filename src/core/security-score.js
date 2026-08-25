@@ -1,4 +1,5 @@
 import { assessPassword } from './password-strength.js';
+import { describeCredential } from './api-credential.js';
 
 /**
  * A vault-health score, computed from the vault's actual contents.
@@ -33,8 +34,16 @@ export function computeSecurityScore(entries, context = {}) {
   const now = context.now ?? Date.now();
   const breachedIds = context.breachedIds === undefined ? null : new Set(context.breachedIds);
 
+  // Logins only. An API key is not "weak" in any sense this scores — it is
+  // whatever length its issuer chose — and judging one by password rules
+  // would fill Watchtower with findings nobody can act on, which is how a
+  // security report gets ignored. Credentials have their own audit, keyed on
+  // expiry and environment, in `auditCredentials` below.
   const withPasswords = entries.filter(
-    (entry) => typeof entry.password === 'string' && entry.password !== '',
+    (entry) =>
+      typeof entry.password === 'string' &&
+      entry.password !== '' &&
+      (entry.type ?? 'login') === 'login',
   );
 
   if (withPasswords.length === 0) {
@@ -145,4 +154,51 @@ export function describeIssues(counts) {
         text: `${count} ${count === 1 ? 'password' : 'passwords'} ${count === 1 ? singular : plural}`,
       };
     });
+}
+
+/**
+ * The credential-side audit: expiry and environment, not strength.
+ *
+ * Separate from the password score on purpose. The two ask different
+ * questions — "could this be guessed" versus "is this still valid, and does
+ * it point at production" — and a single number that mixed them would answer
+ * neither.
+ *
+ * @param {object[]} entries
+ * @param {number} [now]
+ * @returns {{expired: object[], expiring: object[], misfiled: object[], production: number,
+ *            checked: number}}
+ */
+export function auditCredentials(entries, now = Date.now()) {
+  const credentials = (entries ?? []).filter(
+    (entry) => entry.type === 'apiKey' && typeof entry.deletedAt !== 'number',
+  );
+
+  const expired = [];
+  const expiring = [];
+  const misfiled = [];
+  let production = 0;
+
+  for (const entry of credentials) {
+    const described = describeCredential(entry, now);
+    const summary = {
+      id: entry.id,
+      title: entry.title,
+      provider: described.provider,
+      environment: described.environment,
+      days: described.status.days,
+    };
+    if (described.status.state === 'expired') expired.push(summary);
+    if (described.status.state === 'expiring') expiring.push(summary);
+    if (described.misfiled) misfiled.push(summary);
+    if (described.environment === 'production') production += 1;
+  }
+
+  // Soonest first: the one expiring tomorrow matters more than the one
+  // expiring in three weeks.
+  expiring.sort((a, b) => a.days - b.days);
+  // Longest overdue first, for the same reason inverted.
+  expired.sort((a, b) => a.days - b.days);
+
+  return { expired, expiring, misfiled, production, checked: credentials.length };
 }
