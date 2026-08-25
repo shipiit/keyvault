@@ -5,14 +5,14 @@
 <p align="center">
   <strong><a href="https://shipiit.github.io/keyvault/">keyvault website</a></strong>
   &nbsp;&middot;&nbsp;
-  <a href="https://github.com/shipiit/keyvault/releases/latest">Download</a>
+  <a href="https://github.com/shipiit/keyvault/releases/latest">Download v0.3.0</a>
   &nbsp;&middot;&nbsp;
   <a href="INSTALL.md">Install guide</a>
 </p>
 
 <p align="center">
   <a href="https://github.com/shipiit/keyvault/actions/workflows/ci.yml"><img src="https://github.com/shipiit/keyvault/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <img src="https://img.shields.io/badge/tests-697%20passing-success" alt="697 tests passing">
+  <img src="https://img.shields.io/badge/tests-887%20passing-success" alt="887 tests passing">
   <img src="https://img.shields.io/badge/coverage-97%25-success" alt="97% coverage">
   <img src="https://img.shields.io/badge/runtime%20deps-preact%20%2B%20jsQR-informational" alt="two runtime dependencies: preact and jsQR">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT licence"></a>
@@ -70,6 +70,12 @@ vault.
 | **Watchtower**         | Every weak, reused, breached or stale password, grouped by problem, each one a click from the item that causes it.  |
 | **Trash with undo**    | Deleting is reversible. Nothing is purged on a timer, because no server holds a second copy.                        |
 | **Touch ID unlock**    | WebAuthn PRF wraps the vault key to your device. Prompts on its own; the master password always still works.        |
+| **API credentials**    | Keys and tokens with environment, expiry and hostname. The issuer is named from the key's own prefix, offline.      |
+| **SSH keys**           | Public and private halves, with the fingerprint `ssh-keygen -lf` prints, derived locally from the public key.       |
+| **Custom fields**      | Named sections of typed fields. Hidden ones are masked, excluded from search, and stripped before any projection.   |
+| **Tags**               | Cross-cutting grouping, folded case-insensitively so `Work` and `work` stay one tag rather than two.                |
+| **Archive**            | Keep an item without it being offered to a login form again. Separate from the trash, and nothing here expires.     |
+| **Missing 2FA**        | Logins on sites known to support a second factor where you have no code stored. Checked against a bundled list.     |
 
 ---
 
@@ -183,13 +189,14 @@ Full detail and vulnerability reporting: [`SECURITY.md`](SECURITY.md).
 The work is split into five stages, each of which produces something verifiable
 on its own.
 
-| Stage                   | Contents                                               | Status                               |
-| ----------------------- | ------------------------------------------------------ | ------------------------------------ |
-| **1 — Core**            | Crypto, TOTP, vault data model, CI                     | ✅ **Complete**                      |
-| **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging     | ✅ **Complete** — loadable in Chrome |
-| **3 — UI**              | Design system, popup, vault page, settings, generator  | ✅ **Complete**                      |
-| **4 — Web integration** | Autofill, save prompt, auto-login, 2FA, backup, import | ✅ **Complete**                      |
-| **5 — Daily use**       | In-field badge, Watchtower, trash, Touch ID unlock     | ✅ **Complete**                      |
+| Stage                   | Contents                                                | Status                               |
+| ----------------------- | ------------------------------------------------------- | ------------------------------------ |
+| **1 — Core**            | Crypto, TOTP, vault data model, CI                      | ✅ **Complete**                      |
+| **2 — Runtime**         | Service worker, storage, lock lifecycle, messaging      | ✅ **Complete** — loadable in Chrome |
+| **3 — UI**              | Design system, popup, vault page, settings, generator   | ✅ **Complete**                      |
+| **4 — Web integration** | Autofill, save prompt, auto-login, 2FA, backup, import  | ✅ **Complete**                      |
+| **5 — Daily use**       | In-field badge, Watchtower, trash, Touch ID unlock      | ✅ **Complete**                      |
+| **6 — Item types**      | API credentials, SSH keys, custom fields, tags, archive | ✅ **Complete**                      |
 
 **What this means today:** the extension is in daily use. It fills logins as
 pages load, shows a badge inside the field with your matching logins, offers to
@@ -199,15 +206,28 @@ Touch ID, lists every weak or reused password in Watchtower, keeps deleted
 items in an undoable trash, generates passwords, and exports an encrypted
 backup.
 
+It also stores API keys and SSH keys, groups anything by tag, keeps custom
+fields hidden from search, archives accounts you have closed, and points out
+logins on sites that support two-factor where you have not set it up.
+
 **What is honestly still missing**, all recorded in [`ROADMAP.md`](ROADMAP.md):
 
-- **No independent audit.** One author, no external review.
-- **No end-to-end tests.** All 697 tests run against the code, never against a
-  browser with the extension actually loaded. This is the real gap: every bug
-  found in daily use so far has been of a kind the unit tests structurally
-  could not catch.
-- **No sync.** One machine, one vault. Your export _is_ your backup.
+- **No independent audit.** One author, no external review. This is the one
+  that should stop you trusting it with anything irreplaceable.
+- **No sync.** One machine, one vault, and your export _is_ your backup. The
+  design is written up in
+  [`docs/design`](docs/design/2026-08-25-encrypted-sync.md) and not yet built.
+- **No Travel Mode.** Also
+  [designed](docs/design/2026-08-25-travel-mode.md), deliberately unbuilt: it
+  removes data from the only place it exists, and it wants a real restore path
+  — which is sync — before it is worth shipping.
 - **Card and identity item types** store fields but have no dedicated editor.
+
+**Verification, so the claim is checkable:** 887 unit tests, and 43 end-to-end
+tests that load the extension into a real Chromium and drive it. The
+end-to-end suite exists because every bug found in daily use was of a kind the
+unit tests structurally could not catch — and on its first run it found a live
+one in the trust boundary.
 
 ---
 

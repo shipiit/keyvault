@@ -125,6 +125,18 @@ Stages 1 to 5 are complete. Working today:
   installed, which found a live bug in the trust boundary on its first run
 - **Pinned extension ID** — a manifest key, so moving the folder no longer
   produces a new ID and an apparently empty vault
+- **API credentials** — keys and tokens with environment, expiry and hostname,
+  and the issuer named from the key's own prefix without asking anyone
+- **SSH keys** — with the fingerprint `ssh-keygen -lf` prints, derived locally
+  and verified against the real thing
+- **Custom fields** — typed sections; hidden values are masked, excluded from
+  search, and stripped before an item crosses into a page
+- **Tags** — folded case-insensitively, so `Work` and `work` stay one tag
+- **Archive** — keep an item without it ever being offered to a login form
+  again, separate from the trash, and nothing in it expires
+- **Missing two-factor** — logins on sites known to support a second factor
+  where no code is stored, checked against a bundled list rather than by
+  asking anyone which sites you use
 
 ## To do
 
@@ -132,42 +144,67 @@ Ordered by what would be felt first.
 
 ### 1. Encrypted sync
 
-The largest remaining gap. One machine, one vault, and the export is the only
-backup. An encrypted blob pushed to storage the user controls — Drive,
-Dropbox, WebDAV — with the provider seeing ciphertext and nothing else. This
-is where password managers lose data, so it gets a written design and an
-approval before any code: which providers, how conflicts resolve, what happens
-when two machines edit the same entry.
+The largest remaining gap: one machine, one vault, and an export as the only
+backup. **Designed, not built** —
+[`docs/design/2026-08-25-encrypted-sync.md`](docs/design/2026-08-25-encrypted-sync.md).
 
-### 2. Item types beyond logins
+The transport recommendation is a file the user picks inside a folder their
+machine already syncs, which adds no OAuth, no permission and no network
+request. The hard part is the merge, and the model turned out to be most of
+the way there already: soft deletion and soft archiving are tombstones, and a
+hard delete would have been unmergeable.
+
+Ships in phases; phase one is a manual **Sync now**, which on its own is
+automated encrypted backup into a folder that already leaves the machine.
+
+### 2. Travel Mode
+
+**Designed, deliberately unbuilt** —
+[`docs/design/2026-08-25-travel-mode.md`](docs/design/2026-08-25-travel-mode.md).
+
+It removes data from the only place that data exists, so it wants a real
+restore path first — which is sync. The design also records two things found
+by reading the code: `storage.js` keeps a rotating copy of the previous vault
+that any naive implementation would leave behind, and `chrome.storage.local`
+is LevelDB, so deletion is not erasure.
+
+### 3. Item types beyond logins
 
 Cards, identities and documents can be created but are given login fields.
 Each needs its own shape — a card wants a number, expiry and security code —
 and the sidebar categories stay half-real until they have one.
 
-### 3. Duplicate detection
+### 4. Duplicate detection
 
 An import from another manager leaves near-duplicates. Find them and offer a
-merge.
+merge. Worth doing before sync rather than after, since sync will make more
+of them.
 
-### 4. A command palette
+### 5. A command palette
 
 Search, jump to an entry, copy a password, generate one — without the mouse.
 
-### 5. Show a QR to move a credential to a phone
+### 6. Show a QR to move a credential to a phone
 
-The reverse of scanning. Needs a QR _encoder_, which is a few hundred lines
-and has no dependency worth taking for it.
+The reverse of scanning. Needs a QR _encoder_, a few hundred lines, with no
+dependency worth taking for it.
 
-### 6. Folders
+### 7. Multiple vaults
 
-The data model carries them and nothing uses them.
+Separate vaults with separate keys, rather than one vault with tags. A real
+change to the model: every list, match and score gains a scope, and the
+migration of an existing vault is the delicate part.
 
-### 7. Change the master password from the UI
+### 8. Folders
+
+The data model carries them and nothing uses them. Tags cover most of what
+they would be for, so this may stay unbuilt on purpose.
+
+### 9. Change the master password from the UI
 
 The handler exists and is tested; there is no way to reach it.
 
-### 8. Per-site rules
+### 10. Per-site rules
 
 "Never autofill here", for the handful of sites where it misbehaves.
 
