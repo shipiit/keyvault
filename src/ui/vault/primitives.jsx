@@ -268,6 +268,12 @@ export const Icon = {
     </>,
   ),
   Plus: make(<path d="M12 5v14M5 12h14" />),
+  Terminal: make(
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 9l3 3-3 3M13 15h4" />
+    </>,
+  ),
   Tag: make(
     <>
       <path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9z" />

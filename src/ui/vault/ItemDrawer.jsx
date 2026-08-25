@@ -16,6 +16,7 @@ import { scanOpenTabsForTotp } from '../lib/messaging.js';
 const TYPES = [
   { id: 'login', label: 'Login', icon: Icon.Lock },
   { id: 'apiKey', label: 'API Key', icon: Icon.Key },
+  { id: 'sshKey', label: 'SSH Key', icon: Icon.Terminal },
   { id: 'note', label: 'Secure Note', icon: Icon.Note },
   { id: 'card', label: 'Card', icon: Icon.Card },
   { id: 'identity', label: 'Identity', icon: Icon.Identity },
@@ -53,6 +54,7 @@ function fromDateInput(value) {
 
 const EMPTY = {
   title: '',
+  publicKey: '',
   tags: [],
   sections: [],
   credentialType: 'apiKey',
@@ -102,6 +104,7 @@ export function ItemDrawer({
     setValues({
       title: entry.title ?? '',
       sections: sectionsOf(entry),
+      publicKey: entry.fields?.ssh?.publicKey ?? '',
       tags: normaliseTags(entry.tags),
       credentialType: credential.credentialType ?? 'apiKey',
       environment: credential.environment ?? 'unknown',
@@ -180,6 +183,7 @@ export function ItemDrawer({
         // silently drop whichever was assembled earlier.
         fields: {
           sections: pruneSections(values.sections),
+          ...(type === 'sshKey' ? { ssh: { publicKey: values.publicKey.trim() } } : {}),
           ...(type === 'apiKey'
             ? {
                 credential: {
@@ -223,7 +227,7 @@ export function ItemDrawer({
         <div className="flex-1 overflow-y-auto px-5 pb-4">
           {!isEdit && (
             <div
-              className="mb-4 grid grid-cols-3 gap-1.5 sm:grid-cols-6"
+              className="mb-4 grid grid-cols-4 gap-1.5 sm:grid-cols-7"
               role="radiogroup"
               aria-label="Item type"
             >
@@ -273,6 +277,35 @@ export function ItemDrawer({
                 autoComplete="off"
                 onInput={set('username')}
               />
+            )}
+
+            {type === 'sshKey' && (
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="drawer-public-key"
+                  className="text-sm font-medium text-[var(--color-fg)]"
+                >
+                  Public key
+                </label>
+                <textarea
+                  id="drawer-public-key"
+                  rows={3}
+                  value={values.publicKey}
+                  placeholder="ssh-ed25519 AAAAC3... you@machine"
+                  spellcheck={false}
+                  onInput={set('publicKey')}
+                  className={[
+                    'w-full rounded-[var(--radius-field)] px-3 py-2 font-mono text-xs',
+                    'bg-[var(--color-surface)] text-[var(--color-fg)]',
+                    'border border-[var(--color-border-strong)]',
+                  ].join(' ')}
+                />
+                <p className="text-xs text-[var(--color-fg-subtle)]">
+                  Not a secret — it is the half you hand out. Storing it here is what lets KeyVault
+                  show the fingerprint a server will ask you to confirm. The private key goes in the
+                  field above.
+                </p>
+              </div>
             )}
 
             {type === 'apiKey' && (
