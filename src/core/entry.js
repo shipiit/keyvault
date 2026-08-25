@@ -24,7 +24,7 @@ const IMMUTABLE_FIELDS = ['id', 'createdAt', 'passwordHistory'];
  * @returns {object}
  */
 export function trashEntry(entry, now = Date.now()) {
-  return { ...entry, deletedAt: now };
+  return { ...entry, deletedAt: now, rev: (entry.rev ?? 0) + 1 };
 }
 
 /**
@@ -32,7 +32,7 @@ export function trashEntry(entry, now = Date.now()) {
  * @returns {object}
  */
 export function restoreEntry(entry) {
-  return { ...entry, deletedAt: null };
+  return { ...entry, deletedAt: null, rev: (entry.rev ?? 0) + 1 };
 }
 
 /**
@@ -61,12 +61,12 @@ export function isTrashed(entry) {
  * decision.
  */
 export function archiveEntry(entry, now = Date.now()) {
-  return { ...entry, archivedAt: now };
+  return { ...entry, archivedAt: now, rev: (entry.rev ?? 0) + 1 };
 }
 
 /** Put an archived entry back into circulation. */
 export function unarchiveEntry(entry) {
-  return { ...entry, archivedAt: null };
+  return { ...entry, archivedAt: null, rev: (entry.rev ?? 0) + 1 };
 }
 
 /** @param {object} entry */
@@ -126,6 +126,10 @@ export function createEntry(fields = {}, now = Date.now()) {
     passwordHistory: [],
     createdAt: now,
     updatedAt: now,
+    // Incremented on every write. Sync orders changes by this rather than by
+    // `updatedAt`, because one machine with a wrong clock would otherwise
+    // win every conflict forever.
+    rev: 1,
     lastUsedAt: null,
     // Soft delete. Nothing holds a copy of this vault, so a mis-click must
     // not be the end of a credential.
@@ -171,5 +175,5 @@ export function updateEntry(entry, changes = {}, now = Date.now()) {
       )
     : entry.passwordHistory;
 
-  return { ...entry, ...safe, passwordHistory, updatedAt: now };
+  return { ...entry, ...safe, passwordHistory, rev: (entry.rev ?? 0) + 1, updatedAt: now };
 }
