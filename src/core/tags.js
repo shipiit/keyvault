@@ -102,9 +102,7 @@ export function tagCounts(entries) {
       }
     }
   }
-  return [...counts.values()].sort(
-    (a, b) => b.count - a.count || a.tag.localeCompare(b.tag),
-  );
+  return [...counts.values()].sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
 }
 
 /**
