@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/shipiit/keyvault/actions/workflows/ci.yml"><img src="https://github.com/shipiit/keyvault/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <img src="https://img.shields.io/badge/tests-887%20passing-success" alt="887 tests passing">
+  <img src="https://img.shields.io/badge/tests-915%20passing-success" alt="915 tests passing">
   <img src="https://img.shields.io/badge/coverage-97%25-success" alt="97% coverage">
   <img src="https://img.shields.io/badge/runtime%20deps-preact%20%2B%20jsQR-informational" alt="two runtime dependencies: preact and jsQR">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT licence"></a>
@@ -76,6 +76,7 @@ vault.
 | **Tags**               | Cross-cutting grouping, folded case-insensitively so `Work` and `work` stay one tag rather than two.                |
 | **Archive**            | Keep an item without it being offered to a login form again. Separate from the trash, and nothing here expires.     |
 | **Missing 2FA**        | Logins on sites known to support a second factor where you have no code stored. Checked against a bundled list.     |
+| **Sync**               | Two machines through a file in a folder you already sync. No account, no provider API, no network request.          |
 
 ---
 
@@ -83,15 +84,15 @@ vault.
 
 ### How the vault is protected
 
-| Layer          | Choice                                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------------------- |
-| Encryption     | AES-GCM-256, fresh random 96-bit IV per write                                                                 |
-| Key derivation | PBKDF2-SHA256, 600,000 iterations, 16-byte per-vault salt                                                     |
-| Unlock check   | Two-stage verifier record — never a stored password or password hash                                          |
-| At rest        | `chrome.storage.local` only. Never `chrome.storage.sync`, which round-trips through Google.                   |
-| In memory      | The derived key is never written to disk and is cleared when the browser closes                               |
-| Network        | Two requests exist: breach checking (off by default) and a daily update check (on). Neither sends vault data. |
-| CSP            | `script-src 'self'` — no remote code, no `eval`                                                               |
+| Layer          | Choice                                                                                                                 |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Encryption     | AES-GCM-256, fresh random 96-bit IV per write                                                                          |
+| Key derivation | PBKDF2-SHA256, 600,000 iterations, 16-byte per-vault salt                                                              |
+| Unlock check   | Two-stage verifier record — never a stored password or password hash                                                   |
+| At rest        | `chrome.storage.local` only. Never `chrome.storage.sync`, which round-trips through Google.                            |
+| In memory      | The derived key is never written to disk and is cleared when the browser closes                                        |
+| Network        | Two requests exist: breach checking (off by default) and a daily update check (on). Sync adds none — it writes a file. |
+| CSP            | `script-src 'self'` — no remote code, no `eval`                                                                        |
 
 ### Design decisions worth knowing about
 
@@ -214,16 +215,17 @@ logins on sites that support two-factor where you have not set it up.
 
 - **No independent audit.** One author, no external review. This is the one
   that should stop you trusting it with anything irreplaceable.
-- **No sync.** One machine, one vault, and your export _is_ your backup. The
-  design is written up in
-  [`docs/design`](docs/design/2026-08-25-encrypted-sync.md) and not yet built.
-- **No Travel Mode.** Also
-  [designed](docs/design/2026-08-25-travel-mode.md), deliberately unbuilt: it
-  removes data from the only place it exists, and it wants a real restore path
-  — which is sync — before it is worth shipping.
+- **Sync is manual.** Two machines stay in step through a file you pick in a
+  folder your computer already syncs, but you press the button —
+  [phase two](docs/design/2026-08-25-encrypted-sync.md) makes it automatic,
+  and merging two vaults is worth watching work before anything automatic
+  depends on it.
+- **No Travel Mode.** [Designed](docs/design/2026-08-25-travel-mode.md) and
+  not yet built. It removes data from a device, and now that sync gives it a
+  real restore path it is the next thing worth building.
 - **Card and identity item types** store fields but have no dedicated editor.
 
-**Verification, so the claim is checkable:** 887 unit tests, and 43 end-to-end
+**Verification, so the claim is checkable:** 915 unit tests, and 43 end-to-end
 tests that load the extension into a real Chromium and drive it. The
 end-to-end suite exists because every bug found in daily use was of a kind the
 unit tests structurally could not catch — and on its first run it found a live
