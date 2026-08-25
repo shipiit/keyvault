@@ -118,6 +118,55 @@ export function WatchtowerView({ score, entries, onOpenEntry, onOpenSettings }) 
         )}
       </div>
 
+      {score.twoFactor !== undefined && score.twoFactor.missing.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-sm font-semibold text-[var(--color-warn)]">
+            Two-factor available but not set up
+            <span className="ml-2 tabular text-xs font-normal text-[var(--color-fg-muted)]">
+              {score.twoFactor.missing.length}
+            </span>
+          </h2>
+          <p className="mb-3 mt-0.5 max-w-[60ch] text-xs leading-relaxed text-[var(--color-fg-muted)]">
+            These sites support a second factor and this vault has no code for them. Turning it on
+            is the single biggest improvement available to most accounts — a stolen password stops
+            being enough on its own.
+          </p>
+          <ul className="flex flex-col gap-1">
+            {score.twoFactor.missing.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenEntry(item.id)}
+                  className={[
+                    'flex w-full items-center gap-3 rounded-[var(--radius-card)] px-4 py-3 text-left',
+                    'border border-[var(--color-border)]',
+                    'transition-colors duration-[var(--dur-150)]',
+                    'hover:border-[var(--color-border-strong)] hover:bg-[var(--color-field)]',
+                    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                    'focus-visible:outline-[var(--color-ring)]',
+                  ].join(' ')}
+                >
+                  <ItemAvatar title={item.title} size="sm" />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-sm font-medium">{item.title}</span>
+                    <span className="truncate text-xs text-[var(--color-fg-muted)]">
+                      {item.site}
+                    </span>
+                  </span>
+                  <Icon.Chevron className="size-4 shrink-0 -rotate-90 text-[var(--color-fg-subtle)]" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          {/* Said outright: no findings here does not mean no gaps. */}
+          <p className="mt-2 text-xs text-[var(--color-fg-subtle)]">
+            Checked against a built-in list of {score.twoFactor.knownSites} sites, held on this
+            device. Sites outside it are not reported either way — a shorter list that never phones
+            home is the deliberate trade.
+          </p>
+        </section>
+      )}
+
       {/* Credentials are audited on expiry and environment, not strength, so
           they get their own section rather than a row in a list about
           passwords. */}
