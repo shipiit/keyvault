@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/shipiit/keyvault/actions/workflows/ci.yml"><img src="https://github.com/shipiit/keyvault/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <img src="https://img.shields.io/badge/tests-915%20passing-success" alt="915 tests passing">
+  <img src="https://img.shields.io/badge/tests-936%20passing-success" alt="936 tests passing">
   <img src="https://img.shields.io/badge/coverage-97%25-success" alt="97% coverage">
   <img src="https://img.shields.io/badge/runtime%20deps-preact%20%2B%20jsQR-informational" alt="two runtime dependencies: preact and jsQR">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT licence"></a>
@@ -77,6 +77,9 @@ vault.
 | **Archive**            | Keep an item without it being offered to a login form again. Separate from the trash, and nothing here expires.     |
 | **Missing 2FA**        | Logins on sites known to support a second factor where you have no code stored. Checked against a bundled list.     |
 | **Sync**               | Two machines through a file in a folder you already sync. No account, no provider API, no network request.          |
+| **Cards**              | Issuer read from the number, Luhn checked as you type, grouped as printed — including Amex's 4-6-5.                 |
+| **Identities**         | Names, contact details and an address, for the forms that ask for all of it.                                        |
+| **Documents**          | What a document is and where it is kept. The file itself is deliberately not stored.                                |
 
 ---
 
@@ -207,9 +210,11 @@ Touch ID, lists every weak or reused password in Watchtower, keeps deleted
 items in an undoable trash, generates passwords, and exports an encrypted
 backup.
 
-It also stores API keys and SSH keys, groups anything by tag, keeps custom
-fields hidden from search, archives accounts you have closed, and points out
-logins on sites that support two-factor where you have not set it up.
+It also stores API keys, SSH keys, cards, identities and documents — each with
+the fields that type actually needs rather than a login's fields relabelled —
+groups anything by tag, keeps custom fields hidden from search, archives
+accounts you have closed, points out logins on sites that support two-factor
+where you have not set it up, and keeps two machines in step through a file.
 
 **What is honestly still missing**, all recorded in [`ROADMAP.md`](ROADMAP.md):
 
@@ -223,9 +228,8 @@ logins on sites that support two-factor where you have not set it up.
 - **No Travel Mode.** [Designed](docs/design/2026-08-25-travel-mode.md) and
   not yet built. It removes data from a device, and now that sync gives it a
   real restore path it is the next thing worth building.
-- **Card and identity item types** store fields but have no dedicated editor.
 
-**Verification, so the claim is checkable:** 915 unit tests, and 43 end-to-end
+**Verification, so the claim is checkable:** 936 unit tests, and 43 end-to-end
 tests that load the extension into a real Chromium and drive it. The
 end-to-end suite exists because every bug found in daily use was of a kind the
 unit tests structurally could not catch — and on its first run it found a live
