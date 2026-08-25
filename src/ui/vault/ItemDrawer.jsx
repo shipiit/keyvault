@@ -4,6 +4,8 @@ import { Button } from '../components/Button.jsx';
 import { Field } from '../components/Field.jsx';
 import { Select } from '../components/Select.jsx';
 import { CustomFieldsEditor } from './CustomFieldsEditor.jsx';
+import { TagInput } from '../components/TagInput.jsx';
+import { normaliseTags } from '../../core/tags.js';
 import { sectionsOf, pruneSections } from '../../core/custom-fields.js';
 import { CREDENTIAL_TYPES, ENVIRONMENTS } from '../../core/api-credential.js';
 import { GeneratorPopover } from './GeneratorPopover.jsx';
@@ -51,6 +53,7 @@ function fromDateInput(value) {
 
 const EMPTY = {
   title: '',
+  tags: [],
   sections: [],
   credentialType: 'apiKey',
   environment: 'unknown',
@@ -71,7 +74,13 @@ const EMPTY = {
  * Used for both, because the fields are identical and two near-copies of a
  * form is where they drift apart.
  */
-export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
+export function ItemDrawer({
+  entry = null,
+  onSave,
+  onClose,
+  compact = false,
+  tagSuggestions = [],
+}) {
   const isEdit = entry !== null;
   const [type, setType] = useState('login');
   const [values, setValues] = useState(EMPTY);
@@ -93,6 +102,7 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
     setValues({
       title: entry.title ?? '',
       sections: sectionsOf(entry),
+      tags: normaliseTags(entry.tags),
       credentialType: credential.credentialType ?? 'apiKey',
       environment: credential.environment ?? 'unknown',
       hostname: credential.hostname ?? '',
@@ -163,6 +173,7 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
       await onSave({
         ...values,
         type,
+        tags: normaliseTags(values.tags),
         // One object, built once. `fields` is where the entry model keeps
         // per-type data; assigning it twice — once for the credential, once
         // for the sections — would have the second overwrite the first and
@@ -456,6 +467,12 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
             />
 
             <div className="flex flex-col gap-1.5">
+              <TagInput
+                tags={values.tags}
+                suggestions={tagSuggestions}
+                onChange={(tags) => setValues((current) => ({ ...current, tags }))}
+              />
+
               {/* Above the notes box on purpose: it is the field these exist to
                   empty, and offering the structured option first is what stops a
                   recovery code being pasted into free text. */}

@@ -54,7 +54,16 @@ function visibleRows(items, counts, view) {
   );
 }
 
-export function Sidebar({ view, onSelectView, counts, score, onOpenScore, collapsed, onToggle }) {
+export function Sidebar({
+  view,
+  onSelectView,
+  counts,
+  tags = [],
+  score,
+  onOpenScore,
+  collapsed,
+  onToggle,
+}) {
   const views = visibleRows(VIEWS, counts, view);
   const categories = visibleRows(CATEGORIES, counts, view);
 
@@ -89,6 +98,23 @@ export function Sidebar({ view, onSelectView, counts, score, onOpenScore, collap
                 item={item}
                 count={counts[item.id] ?? 0}
                 active={view === item.id}
+                collapsed={collapsed}
+                onSelect={onSelectView}
+              />
+            ))}
+          </Group>
+        )}
+
+        {/* Only once something is tagged. An always-present empty Tags
+            heading is a row that teaches people to ignore the sidebar. */}
+        {tags.length > 0 && (
+          <Group title="Tags" collapsed={collapsed}>
+            {tags.map(({ tag, count }) => (
+              <NavItem
+                key={tag}
+                item={{ id: `tag:${tag}`, label: tag, icon: Icon.Tag }}
+                count={count}
+                active={view === `tag:${tag}`}
                 collapsed={collapsed}
                 onSelect={onSelectView}
               />
