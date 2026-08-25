@@ -17,6 +17,8 @@ async function saveLogin(page, { url = 'https://e2e.test/login' } = {}) {
     .getByRole('button', { name: /new item/i })
     .first()
     .click();
+  // A new item asks what it is before asking for its details.
+  await page.getByRole('radio', { name: /^login/i }).click();
 
   // Wait for the drawer rather than assuming it opened. Filling a field that
   // has not rendered yet silently does nothing and the failure surfaces much

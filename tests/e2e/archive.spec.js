@@ -15,6 +15,8 @@ async function addLogin(page, { title, url }) {
     .getByRole('button', { name: /new item/i })
     .first()
     .click();
+  // A new item asks what it is before asking for its details.
+  await page.getByRole('radio', { name: /^login/i }).click();
   const titleField = page.getByLabel(/^title/i);
   await expect(titleField).toBeVisible();
   await titleField.fill(title);

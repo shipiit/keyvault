@@ -22,7 +22,9 @@ async function addKey(page, { title, secret, environment, expires }) {
   const titleField = page.getByLabel(/^title/i);
   await expect(titleField).toBeVisible();
   await titleField.fill(title);
-  await page.getByLabel('Password', { exact: true }).fill(secret);
+  // The masked field is labelled for the type it belongs to — a key is not
+  // a password, and calling it one made the form read as a login.
+  await page.getByLabel('Key or token', { exact: true }).fill(secret);
   if (environment !== undefined) {
     await page.getByLabel(/environment/i).selectOption(environment);
   }

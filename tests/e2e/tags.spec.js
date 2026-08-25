@@ -13,6 +13,8 @@ async function addItem(page, { title, tags }) {
     .getByRole('button', { name: /new item/i })
     .first()
     .click();
+  // A new item asks what it is before asking for its details.
+  await page.getByRole('radio', { name: /^login/i }).click();
   const titleField = page.getByLabel(/^title/i);
   await expect(titleField).toBeVisible();
   await titleField.fill(title);
@@ -57,6 +59,8 @@ test('a comma finishes a tag rather than becoming part of it', async ({ vaultPag
     .getByRole('button', { name: /new item/i })
     .first()
     .click();
+  // A new item asks what it is before asking for its details.
+  await vaultPage.getByRole('radio', { name: /^login/i }).click();
   await vaultPage.getByLabel(/^title/i).fill('Item');
   await vaultPage.getByLabel('Add a tag').fill('alpha,beta,');
   await vaultPage.getByRole('button', { name: /^save/i }).click();
