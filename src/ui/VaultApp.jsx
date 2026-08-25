@@ -8,6 +8,7 @@ import { Settings } from './vault/Settings.jsx';
 import { GeneratorPage } from './vault/GeneratorPage.jsx';
 import { TrashView } from './vault/TrashView.jsx';
 import { WatchtowerView } from './vault/WatchtowerView.jsx';
+import { suggestTags, tagCounts, hasTag } from '../core/tags.js';
 import { UpdateBanner } from './vault/UpdateBanner.jsx';
 import { RecoveryKit } from './vault/RecoveryKit.jsx';
 import { restoreEntryRemote, listTrash } from './lib/messaging.js';
@@ -34,9 +35,10 @@ const VIEW_TITLES = {
   card: 'Cards',
   identity: 'Identities',
   document: 'Documents',
+  apiKey: 'API Keys',
 };
 
-const CATEGORY_IDS = new Set(['login', 'note', 'card', 'identity', 'document']);
+const CATEGORY_IDS = new Set(['login', 'apiKey', 'note', 'card', 'identity', 'document']);
 
 /**
  * The vault application.
@@ -146,7 +148,11 @@ export function VaultApp({ compact = false }) {
       const cutoff = Date.now() - 7 * 86400000;
       list = list.filter((e) => (e.lastUsedAt ?? 0) > cutoff);
     } else if (view === 'trash' || view === 'watchtower' || view === 'recovery') list = [];
-    else if (CATEGORY_IDS.has(view)) list = list.filter((e) => (e.type ?? 'login') === view);
+    else if (view.startsWith('tag:')) {
+      // Prefixed rather than a separate piece of state: every other view is a
+      // string, and a second selector would need keeping in step with it.
+      list = list.filter((entry) => hasTag(entry, view.slice(4)));
+    } else if (CATEGORY_IDS.has(view)) list = list.filter((e) => (e.type ?? 'login') === view);
 
     const needle = query.trim().toLowerCase();
     if (needle !== '') {
@@ -167,6 +173,16 @@ export function VaultApp({ compact = false }) {
     return list;
   }, [entries, view, query]);
 
+  // Drawn from tags already in use: an autocomplete that invents tags is how
+  // a vault ends up with "finances" beside "finance".
+  const tagSuggestions = useMemo(() => suggestTags(entries ?? [], '', 8), [entries]);
+  const tags = useMemo(() => tagCounts(entries ?? []), [entries]);
+
+  // The list's heading is also its accessible name, so a tag view naming
+  // itself is what lets the region be found — by a screen reader as much as
+  // by a test.
+  const viewTitle = view.startsWith('tag:') ? view.slice(4) : (VIEW_TITLES[view] ?? 'Items');
+
   async function handleSave(values) {
     const fields = {
       title: values.title.trim(),
@@ -176,6 +192,7 @@ export function VaultApp({ compact = false }) {
       notes: values.notes,
       autoSubmit: values.autoSubmit === true,
       type: values.type ?? 'login',
+      tags: values.tags ?? [],
       totpUri: values.totpUri.trim() === '' ? undefined : values.totpUri.trim(),
       // Only for the types that carry them. Sending `undefined` would wipe an
       // existing credential block on every edit of a login.
@@ -251,6 +268,7 @@ export function VaultApp({ compact = false }) {
             setSelectedId(null);
           }}
           counts={counts}
+          tags={tags}
           score={score}
           onOpenScore={() => {
             setView('watchtower');
@@ -293,7 +311,7 @@ export function VaultApp({ compact = false }) {
           <>
             <ItemList
               compact={compact}
-              title={VIEW_TITLES[view] ?? 'Items'}
+              title={viewTitle}
               entries={visible}
               selectedId={selectedId}
               onSelect={setSelectedId}
@@ -342,6 +360,7 @@ export function VaultApp({ compact = false }) {
           <ItemDrawer
             compact={compact}
             entry={drawer.entry}
+            tagSuggestions={tagSuggestions}
             onSave={handleSave}
             onClose={() => setDrawer(null)}
           />
