@@ -226,11 +226,7 @@ export function ItemDrawer({
       <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto px-5 pb-4">
           {!isEdit && (
-            <div
-              className="mb-4 grid grid-cols-4 gap-1.5 sm:grid-cols-7"
-              role="radiogroup"
-              aria-label="Item type"
-            >
+            <div className="mb-5 grid grid-cols-4 gap-2" role="radiogroup" aria-label="Item type">
               {TYPES.map((option) => {
                 const IconComponent = option.icon;
                 const active = type === option.id;
@@ -243,23 +239,31 @@ export function ItemDrawer({
                     title={option.label}
                     onClick={() => setType(option.id)}
                     className={[
-                      'flex flex-col items-center gap-1 rounded-[var(--radius-field)] px-1 py-2.5',
-                      'border text-[10px] transition-colors duration-[var(--dur-150)]',
+                      // Four columns rather than seven: at seven the labels
+                      // were 10px and truncated, so "Secure Note" arrived as
+                      // "Secure No…" and the icons carried meaning the words
+                      // were supposed to.
+                      // A fixed height keeps the rows aligned: "Secure Note"
+                      // wraps to two lines and would otherwise make its whole
+                      // row taller than the one below it.
+                      'flex h-[70px] flex-col items-center justify-center gap-1.5',
+                      'rounded-[var(--radius-card)] px-2 text-[11px] font-medium leading-tight',
+                      'border transition-colors duration-[var(--dur-150)]',
                       'disabled:cursor-not-allowed disabled:opacity-35',
                       active
                         ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/12 text-[var(--color-accent)]'
                         : 'border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-border-strong)]',
                     ].join(' ')}
                   >
-                    <IconComponent className="size-[18px]" />
-                    <span className="truncate">{option.label}</span>
+                    <IconComponent className="size-5" />
+                    <span className="text-center">{option.label}</span>
                   </button>
                 );
               })}
             </div>
           )}
 
-          <div className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-4">
             <Field
               label="Title"
               required
