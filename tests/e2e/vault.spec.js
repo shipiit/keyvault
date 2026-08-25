@@ -23,6 +23,8 @@ test('an entry survives locking and unlocking', async ({ vaultPage }) => {
     .getByRole('button', { name: /new item/i })
     .first()
     .click();
+  // A new item asks what it is before asking for its details.
+  await vaultPage.getByRole('radio', { name: /^login/i }).click();
   await vaultPage.getByLabel(/^title/i).fill('GitHub');
   await vaultPage.getByLabel(/username/i).fill('you@example.com');
   await vaultPage
@@ -75,6 +77,8 @@ test('the vault survives a service worker restart', async ({ context, vaultPage 
     .getByRole('button', { name: /new item/i })
     .first()
     .click();
+  // A new item asks what it is before asking for its details.
+  await vaultPage.getByRole('radio', { name: /^login/i }).click();
   await vaultPage.getByLabel(/^title/i).fill('Persisted');
   await vaultPage
     .getByLabel(/^password/i)

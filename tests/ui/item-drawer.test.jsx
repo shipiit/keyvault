@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/preact';
+import { render, screen, cleanup, fireEvent } from '@testing-library/preact';
 import { ItemDrawer } from '../../src/ui/vault/ItemDrawer.jsx';
 
 afterEach(cleanup);
@@ -15,15 +15,27 @@ afterEach(cleanup);
  * trust — including a look-alike domain. The background also refuses to
  * enable it on save, so this is the second of two independent guards.
  */
+
+/**
+ * Open the drawer and advance past the type chooser.
+ *
+ * A new item now asks what it is before asking for its details, so a test
+ * about the fields has to make the same choice a person does.
+ */
+function openWithType(name = /^login/i) {
+  render(<ItemDrawer entry={null} onSave={vi.fn()} onClose={vi.fn()} />);
+  fireEvent.click(screen.getByRole('radio', { name }));
+}
+
 describe('ItemDrawer security defaults', () => {
   it('leaves "Sign in automatically" off for a new item', () => {
-    render(<ItemDrawer entry={null} onSave={vi.fn()} onClose={vi.fn()} />);
+    openWithType();
     const toggle = screen.getByRole('switch', { name: 'Sign in automatically' });
     expect(toggle.getAttribute('aria-checked')).toBe('false');
   });
 
   it('leaves two-factor off for a new item', () => {
-    render(<ItemDrawer entry={null} onSave={vi.fn()} onClose={vi.fn()} />);
+    openWithType();
     expect(
       screen.getByRole('switch', { name: 'Enable two-factor code' }).getAttribute('aria-checked'),
     ).toBe('false');
@@ -45,15 +57,13 @@ describe('ItemDrawer security defaults', () => {
   it('offers every item type, all selectable', () => {
     render(<ItemDrawer entry={null} onSave={vi.fn()} onClose={vi.fn()} />);
     const types = screen.getAllByRole('radio');
-    expect(types.map((button) => button.textContent.trim())).toEqual([
-      'Login',
-      'API Key',
-      'SSH Key',
-      'Secure Note',
-      'Card',
-      'Identity',
-      'Document',
-    ]);
+    const labels = ['Login', 'API Key', 'SSH Key', 'Secure Note', 'Card', 'Identity', 'Document'];
+    expect(types).toHaveLength(labels.length);
+    // Each tile now carries a one-line description after its label, so the
+    // label is the leading text rather than the whole of it.
+    types.forEach((button, index) => {
+      expect(button.textContent.trim().startsWith(labels[index]), labels[index]).toBe(true);
+    });
     expect(types.every((button) => !button.disabled)).toBe(true);
   });
 
@@ -63,7 +73,7 @@ describe('ItemDrawer security defaults', () => {
       .getAllByRole('radio')
       .filter((b) => b.getAttribute('aria-checked') === 'true');
     expect(checked).toHaveLength(1);
-    expect(checked[0].textContent.trim()).toBe('Login');
+    expect(checked[0].textContent.trim().startsWith('Login')).toBe(true);
   });
 
   it('opens an existing entry on its own type', () => {
@@ -82,7 +92,7 @@ describe('ItemDrawer security defaults', () => {
   it('warns about the risk at the point of decision', () => {
     // Burying this in settings would mean the user opts in without ever
     // reading why it is off by default.
-    render(<ItemDrawer entry={null} onSave={vi.fn()} onClose={vi.fn()} />);
+    openWithType();
     expect(document.body.textContent).toMatch(/look-alike/i);
   });
 });

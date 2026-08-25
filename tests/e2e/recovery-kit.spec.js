@@ -19,6 +19,8 @@ test('the sheet identifies the vault without revealing anything', async ({ vault
     .getByRole('button', { name: /new item/i })
     .first()
     .click();
+  // A new item asks what it is before asking for its details.
+  await vaultPage.getByRole('radio', { name: /^login/i }).click();
   await vaultPage.getByLabel(/^title/i).fill('Bank');
   await vaultPage
     .getByLabel(/username/i)
