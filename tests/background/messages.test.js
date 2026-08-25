@@ -528,6 +528,58 @@ describe('message router', () => {
     });
   });
 
+  describe('saving a password from a page, after the item form changed', () => {
+    it('still creates a usable login', async () => {
+      // The item form was rebuilt into a two-step full-screen dialog. The
+      // save prompt is a different path entirely — a content script talking
+      // to this handler — and this pins that it stayed working, because
+      // "the form changed" is exactly the kind of change that quietly takes
+      // a neighbouring path with it.
+      const saved = await router.handle(
+        {
+          type: 'credentials/save',
+          payload: {
+            url: 'https://github.com/login',
+            title: 'GitHub',
+            username: 'you@example.com',
+            password: 'typed-on-the-page',
+          },
+        },
+        PAGE,
+      );
+      expect(saved.ok, saved.error?.message).toBe(true);
+
+      const [entry] = (await send('entries/list', {})).data.entries;
+      expect(entry.title).toBe('GitHub');
+      expect(entry.type).toBe('login');
+
+      // And it is immediately offered back to the page it came from.
+      const forPage = await router.handle(
+        { type: 'credentials/forUrl', payload: { url: 'https://github.com/login' } },
+        PAGE,
+      );
+      expect(forPage.data.entries).toHaveLength(1);
+    });
+
+    it('gives it a revision counter, so it syncs like anything else', async () => {
+      // Added for sync. An entry created by the save prompt without one
+      // would look unchanged to every future merge and never propagate.
+      await router.handle(
+        {
+          type: 'credentials/save',
+          payload: {
+            url: 'https://github.com/login',
+            username: 'you@example.com',
+            password: 'typed-on-the-page',
+          },
+        },
+        PAGE,
+      );
+      const data = await vault.getData();
+      expect(data.entries[0].rev).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe('credentials/save', () => {
     const save = (payload, sender = PAGE) =>
       router.handle({ type: 'credentials/save', payload }, sender);
