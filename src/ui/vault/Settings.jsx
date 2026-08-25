@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import { BackupSection } from './BackupSection.jsx';
+import { SyncSection } from './SyncSection.jsx';
 import { DeviceUnlockSection } from './DeviceUnlock.jsx';
 import { send } from '../lib/messaging.js';
 import { MIN_LENGTH as GENERATOR_MIN, MAX_LENGTH as GENERATOR_MAX } from '../../core/generator.js';
@@ -210,6 +211,13 @@ export function Settings({ onChanged }) {
       </Section>
 
       <BackupSection onChanged={onChanged} />
+
+      <Section
+        title="Sync"
+        description="Keep two machines in step through a file, without a service in the middle."
+      >
+        <SyncSection />
+      </Section>
 
       <Section title="About" description="">
         <p className="text-xs leading-relaxed text-[var(--color-fg-muted)]">

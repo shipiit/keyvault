@@ -19,6 +19,7 @@ import {
 import { entriesForUrl, entryMatchesUrl, toHostname, toOrigin } from '../core/url-match.js';
 import { parseTotpInput, generateTotp, totpTimeRemaining } from '../core/totp.js';
 import { computeSecurityScore, auditCredentials } from '../core/security-score.js';
+import { describeMerge } from '../core/sync-merge.js';
 import { searchableText, countFields } from '../core/custom-fields.js';
 import { findMissingTwoFactor, knownSiteCount } from '../core/two-factor-sites.js';
 import { buildRecoveryKit } from '../core/recovery-kit.js';
@@ -446,6 +447,22 @@ export function createMessageRouter({
     },
 
     // ---- Backup (trusted contexts only) ----
+
+    'sync/merge': {
+      contentScript: false,
+      /**
+       * Merge a vault document read from the sync file, and hand back the
+       * document to write in its place.
+       *
+       * The file is read and written by the UI, because the background has
+       * no file access. The key never leaves here, so the UI only ever
+       * handles sealed bytes.
+       */
+      handle: async ({ remoteDocument, remoteName }) => {
+        const { document, report } = await vault.syncWith(remoteDocument ?? null, remoteName);
+        return { document, report, summary: describeMerge(report) };
+      },
+    },
 
     'backup/create': {
       contentScript: false,

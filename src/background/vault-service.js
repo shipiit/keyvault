@@ -12,6 +12,7 @@ import { KeyVaultError } from '../core/errors.js';
 import { createVaultStorage } from './storage.js';
 import { createSessionKeyStore } from './session-key.js';
 import { wrapVaultKey, unwrapVaultKey } from '../core/device-key.js';
+import { mergeVaults } from '../core/sync-merge.js';
 
 /**
  * Where the device-wrapped vault key lives.
@@ -19,6 +20,9 @@ import { wrapVaultKey, unwrapVaultKey } from '../core/device-key.js';
  * Persistent, unlike the session key: the point is that it survives a
  * browser restart. It is useless without this device's authenticator.
  */
+/** The last state this device agreed with, kept sealed. */
+const SYNC_BASE_KEY = 'keyvault.syncBase';
+
 const DEVICE_UNLOCK_KEY = 'keyvault.deviceUnlock';
 
 /** Raised when an operation needs an unlocked vault and the vault is locked. */
@@ -292,6 +296,93 @@ export function createVaultService({ chrome, kdfOverrides = {}, onDerive = null 
      *
      * @returns {Promise<object|null>}
      */
+    /**
+     * Merge a vault document from another device into this one.
+     *
+     * The remote document is the same sealed format this vault already
+     * writes, so it opens with the same key — which is only true if both
+     * devices share a master password, and that is the point: whatever holds
+     * the file in between sees ciphertext.
+     *
+     * The base — the state this device last agreed with — is kept sealed in
+     * local storage rather than in the clear. Without it the merge would be
+     * two-way and could not tell "I added this" from "they deleted this".
+     *
+     * @param {object|null} remoteDocument
+     * @param {string} remoteName
+     * @returns {Promise<{document: object, report: object}>}
+     */
+    async syncWith(remoteDocument, remoteName = 'another device') {
+      const key = await requireKey();
+      const doc = await storage.load();
+      if (doc === null) {
+        throw new Error('no vault to sync');
+      }
+      const local = await openVaultData(key, doc.data);
+
+      // Nothing there yet: this device seeds the file.
+      if (remoteDocument === null || remoteDocument === undefined) {
+        const document = await storage.load();
+        await chrome.storage.local.set({ [SYNC_BASE_KEY]: document });
+        return {
+          document,
+          report: {
+            unchanged: 0,
+            fromLocal: local.entries.length,
+            fromRemote: 0,
+            conflicts: [],
+            resurrected: [],
+          },
+        };
+      }
+
+      // Refuse two unrelated vaults outright. The salt is per-vault, so a
+      // mismatch means somebody pointed this at the wrong file — and merging
+      // would produce a vault belonging to neither.
+      if (remoteDocument?.kdf?.salt !== doc.kdf.salt) {
+        throw new Error(
+          'that file belongs to a different vault — check the sync file, or its vault ID in the recovery kit',
+        );
+      }
+
+      // Fails closed: a truncated or tampered file will not decrypt, and a
+      // good local vault must never be overwritten by one that did not.
+      const remote = await openVaultData(key, remoteDocument.data);
+
+      const stored = await chrome.storage.local.get(SYNC_BASE_KEY);
+      const baseDocument = stored[SYNC_BASE_KEY] ?? null;
+      const base =
+        baseDocument === null ? { entries: [] } : await openVaultData(key, baseDocument.data);
+
+      const { entries, report } = mergeVaults({
+        base: base.entries,
+        local: local.entries,
+        remote: remote.entries,
+        remoteName,
+        now: Date.now(),
+      });
+
+      // Settings stay local in this phase. They are per-device preferences
+      // — an auto-lock timer that suits a laptop need not suit a desktop —
+      // and merging them would be the least valuable place to spend the
+      // risk.
+      await this.replaceEntries(entries);
+
+      const document = await storage.load();
+      await chrome.storage.local.set({ [SYNC_BASE_KEY]: document });
+      return { document, report };
+    },
+
+    /**
+     * Replace the entry list wholesale. Used only by the merge, which has
+     * already decided what the vault should contain.
+     *
+     * @param {object[]} entries
+     */
+    async replaceEntries(entries) {
+      await this.mutate((data) => ({ ...data, entries }));
+    },
+
     async exportDocument() {
       return storage.load();
     },
