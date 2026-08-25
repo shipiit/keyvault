@@ -5,6 +5,7 @@ import { TotpPanel } from './TotpPanel.jsx';
 import { TotpSetupCard } from './TotpSetupCard.jsx';
 import { SecurityTab } from './SecurityTab.jsx';
 import { CredentialPanel } from './CredentialPanel.jsx';
+import { CustomFieldsPanel } from './CustomFieldsPanel.jsx';
 import { Menu } from './Menu.jsx';
 import {
   getEntry,
@@ -246,6 +247,11 @@ export function ItemDetail({ entryId, onEdit, onClose, onChanged, compact = fals
               onChanged?.();
             }}
           />
+        )}
+        {tab === 'details' && (
+          <div className="mt-6">
+            <CustomFieldsPanel entry={entry} />
+          </div>
         )}
         {tab === 'security' && <SecurityTab entry={entry} />}
         {tab === 'history' && <HistoryTab entry={entry} />}

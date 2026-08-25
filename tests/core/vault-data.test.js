@@ -176,3 +176,55 @@ describe('searchEntries', () => {
     expect(vault.entries).toHaveLength(3);
   });
 });
+
+describe('searchEntries and custom fields', () => {
+  const vaultWith = (sections) => ({
+    entries: [
+      {
+        id: '1',
+        title: 'Bank',
+        username: '',
+        urls: [],
+        tags: [],
+        deletedAt: null,
+        fields: { sections },
+      },
+    ],
+  });
+
+  it('finds an item by a custom field label', () => {
+    const vault = vaultWith([
+      { title: 'Recovery', fields: [{ label: 'Backup code', type: 'concealed', value: 'S3CRET' }] },
+    ]);
+    expect(searchEntries(vault, 'backup code')).toHaveLength(1);
+    expect(searchEntries(vault, 'recovery')).toHaveLength(1);
+  });
+
+  it('finds an item by the value of an ordinary custom field', () => {
+    const vault = vaultWith([
+      { title: '', fields: [{ label: 'PIN', type: 'text', value: '4417' }] },
+    ]);
+    expect(searchEntries(vault, '4417')).toHaveLength(1);
+  });
+
+  it('never matches the value of a hidden custom field', () => {
+    // The search box must not become an oracle: type a guessed secret at an
+    // unlocked browser and see whether it matches.
+    const vault = vaultWith([
+      { title: '', fields: [{ label: 'Backup code', type: 'concealed', value: 'S3CRET' }] },
+    ]);
+    expect(searchEntries(vault, 'S3CRET')).toEqual([]);
+    expect(searchEntries(vault, 's3cret')).toEqual([]);
+  });
+
+  it('still works for entries with no custom fields', () => {
+    expect(
+      searchEntries(
+        {
+          entries: [{ id: '1', title: 'Bank', username: '', urls: [], tags: [], deletedAt: null }],
+        },
+        'bank',
+      ),
+    ).toHaveLength(1);
+  });
+});

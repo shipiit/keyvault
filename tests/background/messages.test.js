@@ -104,6 +104,60 @@ describe('message router', () => {
     });
   });
 
+  describe('custom fields and the trust boundary', () => {
+    it('gives the vault list the searchable text, and a content script none of it', async () => {
+      // Two projections on purpose. The list filters on custom field labels,
+      // which must not cross into a web page — a page learning an item has a
+      // "Recovery code" field is a leak even without the value.
+      await send('entries/create', {
+        fields: {
+          title: 'Bank',
+          urls: ['https://github.com'],
+          fields: {
+            sections: [
+              {
+                title: 'Recovery',
+                fields: [{ label: 'Backup code', type: 'concealed', value: 'S3CRET-CODE' }],
+              },
+            ],
+          },
+        },
+      });
+
+      const listed = await send('entries/list', {});
+      expect(listed.data.entries[0].searchText).toContain('Backup code');
+      expect(listed.data.entries[0].customFields).toBe(1);
+
+      const forPage = await router.handle(
+        { type: 'credentials/forUrl', payload: { url: 'https://github.com/login' } },
+        PAGE,
+      );
+      expect(forPage.data.entries[0].searchText).toBeUndefined();
+      expect(forPage.data.entries[0].customFields).toBeUndefined();
+      expect(JSON.stringify(forPage)).not.toContain('Backup code');
+    });
+
+    it('never sends a hidden field value anywhere, list included', async () => {
+      await send('entries/create', {
+        fields: {
+          title: 'Bank',
+          urls: ['https://github.com'],
+          fields: {
+            sections: [
+              {
+                title: 'Recovery',
+                fields: [{ label: 'Backup code', type: 'concealed', value: 'S3CRET-CODE' }],
+              },
+            ],
+          },
+        },
+      });
+
+      const listed = await send('entries/list', {});
+      expect(JSON.stringify(listed)).not.toContain('S3CRET-CODE');
+    });
+  });
+
   describe('credentials/forUrl', () => {
     it('returns matching entries without any secret material', async () => {
       await addGithubEntry();

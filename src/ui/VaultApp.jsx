@@ -151,7 +151,14 @@ export function VaultApp({ compact = false }) {
     const needle = query.trim().toLowerCase();
     if (needle !== '') {
       list = list.filter((entry) =>
-        [entry.title, entry.username, ...(entry.urls ?? []), ...(entry.tags ?? [])]
+        [
+          entry.title,
+          entry.username,
+          ...(entry.urls ?? []),
+          ...(entry.tags ?? []),
+          // Custom field labels, and values of fields that are not hidden.
+          entry.searchText ?? '',
+        ]
           .join('\n')
           .toLowerCase()
           .includes(needle),

@@ -3,6 +3,8 @@ import { IconButton, Icon } from './primitives.jsx';
 import { Button } from '../components/Button.jsx';
 import { Field } from '../components/Field.jsx';
 import { Select } from '../components/Select.jsx';
+import { CustomFieldsEditor } from './CustomFieldsEditor.jsx';
+import { sectionsOf, pruneSections } from '../../core/custom-fields.js';
 import { CREDENTIAL_TYPES, ENVIRONMENTS } from '../../core/api-credential.js';
 import { GeneratorPopover } from './GeneratorPopover.jsx';
 import { assessPassword } from '../../core/password-strength.js';
@@ -49,6 +51,7 @@ function fromDateInput(value) {
 
 const EMPTY = {
   title: '',
+  sections: [],
   credentialType: 'apiKey',
   environment: 'unknown',
   hostname: '',
@@ -89,6 +92,7 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
     const credential = entry.fields?.credential ?? {};
     setValues({
       title: entry.title ?? '',
+      sections: sectionsOf(entry),
       credentialType: credential.credentialType ?? 'apiKey',
       environment: credential.environment ?? 'unknown',
       hostname: credential.hostname ?? '',
@@ -159,10 +163,13 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
       await onSave({
         ...values,
         type,
-        // Kept under `fields`, which the entry model already carries for
-        // per-type data, so no other type has to know these exist.
-        fields:
-          type === 'apiKey'
+        // One object, built once. `fields` is where the entry model keeps
+        // per-type data; assigning it twice — once for the credential, once
+        // for the sections — would have the second overwrite the first and
+        // silently drop whichever was assembled earlier.
+        fields: {
+          sections: pruneSections(values.sections),
+          ...(type === 'apiKey'
             ? {
                 credential: {
                   credentialType: values.credentialType,
@@ -172,7 +179,8 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
                   expires: fromDateInput(values.expires),
                 },
               }
-            : undefined,
+            : {}),
+        },
       });
     } catch (error) {
       setErrors({ form: error.message });
@@ -448,6 +456,17 @@ export function ItemDrawer({ entry = null, onSave, onClose, compact = false }) {
             />
 
             <div className="flex flex-col gap-1.5">
+              {/* Above the notes box on purpose: it is the field these exist to
+                  empty, and offering the structured option first is what stops a
+                  recovery code being pasted into free text. */}
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-[var(--color-fg)]">Custom fields</span>
+                <CustomFieldsEditor
+                  sections={values.sections}
+                  onChange={(sections) => setValues((current) => ({ ...current, sections }))}
+                />
+              </div>
+
               <label htmlFor="drawer-notes" className="text-sm font-medium text-[var(--color-fg)]">
                 Notes
               </label>
