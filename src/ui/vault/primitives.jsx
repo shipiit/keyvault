@@ -268,6 +268,12 @@ export const Icon = {
     </>,
   ),
   Plus: make(<path d="M12 5v14M5 12h14" />),
+  Box: make(
+    <>
+      <path d="M3 7l9-4 9 4v10l-9 4-9-4z" />
+      <path d="M3 7l9 4 9-4M12 11v10" />
+    </>,
+  ),
   Terminal: make(
     <>
       <rect x="3" y="4" width="18" height="16" rx="2" />

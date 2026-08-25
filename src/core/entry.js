@@ -44,6 +44,37 @@ export function isTrashed(entry) {
 }
 
 /**
+ * Archive an entry.
+ *
+ * Distinct from the trash, and the distinction is the whole reason it
+ * exists. Trash means "I deleted this and might undo it"; archive means "I
+ * am keeping this deliberately, and it is not current". A closed bank
+ * account, a job you left, a service you cancelled — you want the record and
+ * you do not want it offered to a login form ever again.
+ *
+ * Nothing empties the archive. That is the difference from every other
+ * product's version of this: with no server holding a second copy, an
+ * automatic sweep would be silent, permanent data loss.
+ *
+ * `updatedAt` is left alone on purpose. Archiving is not an edit of the
+ * credential, and touching it would reorder the whole list for a filing
+ * decision.
+ */
+export function archiveEntry(entry, now = Date.now()) {
+  return { ...entry, archivedAt: now };
+}
+
+/** Put an archived entry back into circulation. */
+export function unarchiveEntry(entry) {
+  return { ...entry, archivedAt: null };
+}
+
+/** @param {object} entry */
+export function isArchived(entry) {
+  return typeof entry?.archivedAt === 'number';
+}
+
+/**
  * Item kinds.
  *
  * `login` is the only one autofill acts on. The rest are storage: a card or a
@@ -99,6 +130,8 @@ export function createEntry(fields = {}, now = Date.now()) {
     // Soft delete. Nothing holds a copy of this vault, so a mis-click must
     // not be the end of a credential.
     deletedAt: null,
+    // Archived items are kept deliberately and never offered to a page.
+    archivedAt: fields.archivedAt ?? null,
   };
 }
 

@@ -5,6 +5,9 @@ import {
   trashEntry,
   restoreEntry,
   isTrashed,
+  archiveEntry,
+  unarchiveEntry,
+  isArchived,
   MAX_PASSWORD_HISTORY,
 } from '../../src/core/entry.js';
 
@@ -190,5 +193,42 @@ describe('updateEntry', () => {
     const on = updateEntry(e, { autoSubmit: true }, NOW + 1);
     expect(on.autoSubmit).toBe(true);
     expect(updateEntry(on, { autoSubmit: false }, NOW + 2).autoSubmit).toBe(false);
+  });
+});
+
+describe('archiving', () => {
+  const NOW = 1_700_000_000_000;
+
+  it('marks an entry archived without touching the credential', () => {
+    const entry = createEntry({ title: 'Old bank', password: 'hunter2' }, NOW);
+    const archived = archiveEntry(entry, NOW + 1000);
+    expect(isArchived(archived)).toBe(true);
+    expect(archived.password).toBe('hunter2');
+  });
+
+  it('leaves updatedAt alone', () => {
+    // Archiving is a filing decision, not an edit. Touching updatedAt would
+    // reorder the whole list for it.
+    const entry = createEntry({ title: 'Old bank' }, NOW);
+    expect(archiveEntry(entry, NOW + 5000).updatedAt).toBe(NOW);
+  });
+
+  it('is reversible, restoring the entry exactly', () => {
+    const entry = createEntry({ title: 'Old bank', password: 'hunter2' }, NOW);
+    const restored = unarchiveEntry(archiveEntry(entry, NOW + 1000));
+    expect(isArchived(restored)).toBe(false);
+    expect(restored.password).toBe('hunter2');
+  });
+
+  it('is separate from the trash', () => {
+    // Two different decisions: "I deleted this" and "I am keeping this but
+    // it is not current". Conflating them loses the second.
+    const entry = createEntry({ title: 'Old bank' }, NOW);
+    expect(isTrashed(archiveEntry(entry, NOW))).toBe(false);
+    expect(isArchived(trashEntry(entry, NOW))).toBe(false);
+  });
+
+  it('starts unarchived', () => {
+    expect(isArchived(createEntry({ title: 'New' }, NOW))).toBe(false);
   });
 });

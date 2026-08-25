@@ -18,6 +18,7 @@ const VIEWS = [
   { id: 'recovery', label: 'Recovery kit', icon: Icon.Document, tool: true },
   { id: 'favorites', label: 'Favorites', icon: Icon.Star },
   { id: 'recent', label: 'Recent', icon: Icon.Clock },
+  { id: 'archive', label: 'Archive', icon: Icon.Box },
   { id: 'trash', label: 'Trash', icon: Icon.Trash },
 ];
 

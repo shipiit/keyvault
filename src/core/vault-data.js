@@ -91,7 +91,25 @@ export function removeEntry(vault, id) {
  * @returns {object[]}
  */
 export function liveEntries(vault) {
-  return vault.entries.filter((entry) => typeof entry.deletedAt !== 'number');
+  return vault.entries.filter(
+    (entry) => typeof entry.deletedAt !== 'number' && typeof entry.archivedAt !== 'number',
+  );
+}
+
+/**
+ * Archived entries, most recently archived first.
+ *
+ * Kept out of `liveEntries`, which is what every list, search, match and
+ * score goes through — so archiving an item removes it from all of them at
+ * once rather than requiring each to remember.
+ *
+ * @param {object} vault
+ * @returns {object[]}
+ */
+export function archivedEntries(vault) {
+  return vault.entries
+    .filter((entry) => typeof entry.archivedAt === 'number' && typeof entry.deletedAt !== 'number')
+    .sort((a, b) => b.archivedAt - a.archivedAt);
 }
 
 /**

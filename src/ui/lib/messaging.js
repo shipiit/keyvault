@@ -257,3 +257,18 @@ export function checkForUpdate() {
 export function recoveryKit() {
   return send('vault/recoveryKit');
 }
+
+/** File an entry away without deleting it. */
+export function archiveEntryRemote(id) {
+  return send('entries/archive', { id });
+}
+
+/** Put an archived entry back into circulation. */
+export function unarchiveEntryRemote(id) {
+  return send('entries/unarchive', { id });
+}
+
+/** Everything currently archived. */
+export function listArchive() {
+  return send('entries/archived');
+}
