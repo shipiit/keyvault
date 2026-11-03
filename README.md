@@ -329,6 +329,16 @@ the extension APIs are absent, so it can never run inside the real extension.
 Requires Node 20 or newer. CI runs on Node 20, 22 and 24, and fails on any
 `npm audit` finding at moderate or above.
 
+### Running the tests
+
+```sh
+npm test
+```
+
+This runs the unit suite once (`vitest run`). It needs no browser and no build.
+The end-to-end suite is separate: `npm run test:e2e` builds first, then drives
+the extension in Chromium. `npm run test:all` runs both.
+
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before changing anything under
 `src/core/` — cryptographic changes have extra requirements.
 
