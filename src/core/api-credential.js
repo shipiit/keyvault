@@ -177,7 +177,9 @@ export function expiryStatus(credential, now = Date.now()) {
     return { state: 'none', days: null };
   }
   const days = Math.ceil((expires - now) / DAY);
-  if (days < 0) {
+  // Decided on the timestamp, not on days: anything up to a day in the past
+  // rounds up to -0, which is not less than zero.
+  if (expires <= now) {
     return { state: 'expired', days };
   }
   if (days <= EXPIRING_SOON_DAYS) {
