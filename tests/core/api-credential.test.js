@@ -117,6 +117,19 @@ describe('expiryStatus', () => {
     expect(s.days).toBeLessThan(0);
   });
 
+  it('reports a credential that expired less than a day ago as expired', () => {
+    // Math.ceil rounds anything up to 24 h in the past to -0, which is not
+    // less than zero, so these used to read as "expires in 0d".
+    expect(expiryStatus({ expires: NOW - 1 }, NOW).state).toBe('expired');
+    expect(expiryStatus({ expires: NOW - 12 * 3600000 }, NOW).state).toBe('expired');
+    expect(expiryStatus({ expires: NOW - DAY + 1 }, NOW).state).toBe('expired');
+  });
+
+  it('treats the moment of expiry as expired, and the moment before as expiring', () => {
+    expect(expiryStatus({ expires: NOW }, NOW).state).toBe('expired');
+    expect(expiryStatus({ expires: NOW + 1 }, NOW)).toEqual({ state: 'expiring', days: 1 });
+  });
+
   it('warns inside the notice window and not outside it', () => {
     expect(expiryStatus({ expires: NOW + 10 * DAY }, NOW).state).toBe('expiring');
     expect(expiryStatus({ expires: NOW + (EXPIRING_SOON_DAYS + 5) * DAY }, NOW).state).toBe(
